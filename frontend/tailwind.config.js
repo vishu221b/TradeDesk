@@ -5,28 +5,88 @@ export default {
   theme: {
     extend: {
       colors: {
-        // n8n-style ember accent
+        // Primary brand: violet/purple
         accent: {
-          DEFAULT: "#ff6d5a",
-          hover: "#ff5640",
-          soft: "#ff6d5a1a",
+          DEFAULT: "#7c3aed",
+          hover: "#6d28d9",
+          soft: "#7c3aed1a",
+        },
+        // Electric secondary used to add vibrancy in dark mode
+        iris: {
+          DEFAULT: "#8b5cf6",
+          light: "#a855f7",
+        },
+        cyan: {
+          glow: "#22d3ee",
+        },
+        // Secondary brand: warm gold
+        gold: {
+          DEFAULT: "#f5b50a",
+          hover: "#e0a500",
+          soft: "#f5b50a1f",
         },
         canvas: {
-          light: "#f4f5f7",
-          dark: "#1a1a24",
+          light: "#f6f5fc",
+          // deeper, more saturated indigo-black so glows/particles pop
+          dark: "#08060f",
         },
         panel: {
           light: "#ffffff",
-          dark: "#24242f",
+          dark: "#140e29",
         },
         edge: {
-          light: "#e5e7eb",
-          dark: "#34343f",
+          light: "#e9e7f3",
+          dark: "#2a2150",
         },
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
+      },
+      boxShadow: {
+        glow: "0 0 0 1px rgba(124,58,237,0.18), 0 12px 40px -12px rgba(124,58,237,0.5)",
+        "glow-lg": "0 0 0 1px rgba(124,58,237,0.2), 0 24px 70px -20px rgba(124,58,237,0.55)",
+        "glow-cyan": "0 0 0 1px rgba(34,211,238,0.18), 0 16px 50px -16px rgba(34,211,238,0.45)",
+      },
+      backgroundImage: {
+        "brand-gradient": "linear-gradient(135deg, #7c3aed 0%, #a855f7 45%, #f5b50a 130%)",
+        // animated multi-stop brand sheen used by .brand-text
+        "brand-sheen":
+          "linear-gradient(110deg, #a855f7 0%, #22d3ee 30%, #f5b50a 55%, #a855f7 80%)",
+        "brand-radial":
+          "radial-gradient(900px 520px at 12% -12%, rgba(124,58,237,0.30), transparent 60%), radial-gradient(760px 520px at 100% 0%, rgba(34,211,238,0.16), transparent 55%), radial-gradient(700px 520px at 80% 110%, rgba(245,181,10,0.14), transparent 55%)",
+      },
+      keyframes: {
+        "fade-up": {
+          "0%": { opacity: "0", transform: "translateY(24px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        // drifting aurora blobs
+        aurora: {
+          "0%, 100%": { transform: "translate(0px, 0px) scale(1)" },
+          "33%": { transform: "translate(36px, -28px) scale(1.18)" },
+          "66%": { transform: "translate(-28px, 22px) scale(0.92)" },
+        },
+        // moving sheen for gradient text / borders
+        sheen: {
+          "0%": { backgroundPosition: "0% center" },
+          "100%": { backgroundPosition: "200% center" },
+        },
+        "pulse-glow": {
+          "0%, 100%": { opacity: "0.55", transform: "scale(1)" },
+          "50%": { opacity: "1", transform: "scale(1.06)" },
+        },
+      },
+      animation: {
+        "fade-up": "fade-up 0.7s cubic-bezier(0.22,1,0.36,1) forwards",
+        float: "float 6s ease-in-out infinite",
+        aurora: "aurora 20s ease-in-out infinite",
+        sheen: "sheen 6s linear infinite",
+        "pulse-glow": "pulse-glow 3.5s ease-in-out infinite",
       },
     },
   },

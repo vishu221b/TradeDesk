@@ -31,7 +31,9 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
     <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
       <div
         className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-semibold ${
-          isUser ? "bg-gray-200 text-gray-600 dark:bg-white/10 dark:text-gray-200" : "bg-accent text-white"
+          isUser
+            ? "bg-gray-200 text-gray-600 dark:bg-white/10 dark:text-gray-200"
+            : "bg-brand-gradient text-white shadow-glow"
         }`}
       >
         {isUser ? "You" : "AI"}
@@ -41,8 +43,8 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
           <div
             className={`inline-block whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
               isUser
-                ? "bg-accent text-white"
-                : "card text-gray-800 dark:text-gray-100"
+                ? "bg-accent text-white shadow-glow"
+                : "glass text-gray-800 dark:text-gray-100"
             }`}
           >
             {renderText(message.content)}

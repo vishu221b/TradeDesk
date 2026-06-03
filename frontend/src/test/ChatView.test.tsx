@@ -2,29 +2,34 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { send, conversation } = vi.hoisted(() => ({ send: vi.fn(), conversation: vi.fn() }));
+const { send, conversation, conversations, deleteConversation } = vi.hoisted(() => ({
+  send: vi.fn(),
+  conversation: vi.fn(),
+  conversations: vi.fn(),
+  deleteConversation: vi.fn(),
+}));
 
-vi.mock("../api/endpoints", () => ({ chatApi: { send, conversation } }));
+vi.mock("../api/endpoints", () => ({
+  chatApi: { send, conversation, conversations, deleteConversation },
+}));
 
 import { ChatView } from "../components/ChatView";
+import { ChatProvider } from "../context/ChatContext";
 
-function renderChat(overrides: Partial<Parameters<typeof ChatView>[0]> = {}) {
+function renderChat(overrides: { setMode?: (m: "agent" | "chat") => void } = {}) {
   return render(
-    <ChatView
-      conversationId={null}
-      provider="mock"
-      model=""
-      mode="agent"
-      setMode={() => {}}
-      onConversationChange={overrides.onConversationChange ?? vi.fn()}
-      onConversationsRefresh={vi.fn()}
-      {...overrides}
-    />,
+    <ChatProvider>
+      <ChatView provider="mock" model="" mode="agent" setMode={overrides.setMode ?? (() => {})} />
+    </ChatProvider>,
   );
 }
 
 describe("ChatView", () => {
-  beforeEach(() => send.mockReset());
+  beforeEach(() => {
+    send.mockReset();
+    conversation.mockReset();
+    conversations.mockReset().mockResolvedValue([]);
+  });
 
   it("shows example prompts when empty", () => {
     renderChat();
@@ -41,8 +46,7 @@ describe("ChatView", () => {
       mode: "agent",
       tool_calls: [{ name: "list_invoices", input: { only_overdue: true }, output: [] }],
     });
-    const onConversationChange = vi.fn();
-    renderChat({ onConversationChange });
+    renderChat();
 
     await userEvent.type(screen.getByPlaceholderText(/Ask about jobs/i), "what is overdue?");
     await userEvent.click(screen.getByRole("button", { name: /send/i }));
@@ -53,7 +57,6 @@ describe("ChatView", () => {
     );
     expect(await screen.findByText("I found 4 overdue invoices.")).toBeInTheDocument();
     expect(screen.getByText("list_invoices")).toBeInTheDocument();
-    expect(onConversationChange).toHaveBeenCalledWith(7);
   });
 
   it("does not send empty input and switches mode via the toggle", async () => {

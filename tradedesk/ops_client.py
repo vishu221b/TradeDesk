@@ -13,6 +13,7 @@ calls that platform's API behind the same method names — nothing above changes
 from __future__ import annotations
 
 from datetime import date
+from collections import Counter, defaultdict
 from typing import Any, Optional
 
 from sqlalchemy import func, select
@@ -22,6 +23,11 @@ from . import models
 
 LABOUR_RATE_PER_HOUR = 95.00  # standard charge-out rate, ex GST
 GST_RATE = 0.10               # Australian GST
+
+_MONTH_LABELS = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+]
 
 
 class OpsClient:
@@ -180,6 +186,110 @@ class OpsClient:
             "id": c.ref, "name": c.name, "contact": c.contact, "email": c.email,
             "phone": c.phone, "site_address": c.site_address,
         } for c in self._customers()]
+
+    def metrics(self) -> dict[str, Any]:
+        """Aggregate dashboard analytics for this account.
+
+        Computed entirely from the existing read methods so the figures always
+        match what the rest of the app shows (overdue logic, GST, etc.). The
+        time series is driven off invoice ``issued_date`` (the real business
+        timeline) rather than row ``created_at``.
+        """
+        invoices = self.list_invoices()
+        jobs = self.search_jobs()
+        customers = self.list_customers()
+        quotes = self.list_quotes()
+
+        paid = [i for i in invoices if i["status"] == "paid"]
+        unpaid = [i for i in invoices if i["status"] != "paid"]
+        overdue = [i for i in invoices if i["overdue"]]
+
+        revenue_collected = round(sum(i["amount"] for i in paid), 2)
+        outstanding = round(sum(i["amount"] for i in unpaid), 2)
+        overdue_amount = round(sum(i["amount"] for i in overdue), 2)
+        billed_total = round(revenue_collected + outstanding, 2)
+        collection_rate = round(revenue_collected / billed_total, 4) if billed_total else 0.0
+        avg_invoice = round(billed_total / len(invoices), 2) if invoices else 0.0
+
+        # Retention: how many customers have more than one invoice on record.
+        per_customer = Counter(i["customer"] for i in invoices)
+        repeat_customers = sum(1 for n in per_customer.values() if n > 1)
+        repeat_rate = round(repeat_customers / len(per_customer), 4) if per_customer else 0.0
+
+        # A customer is "active" if they have open work or money outstanding.
+        active_job_customers = {j["customer"] for j in jobs if j["status"] not in ("completed",)}
+        active_invoice_customers = {i["customer"] for i in unpaid}
+        active_customers = len(active_job_customers | active_invoice_customers)
+
+        jobs_by_status: dict[str, int] = dict(Counter(j["status"] for j in jobs))
+        active_jobs = sum(jobs_by_status.get(s, 0) for s in ("scheduled", "in_progress"))
+        high_priority_jobs = sum(1 for j in jobs if j["priority"] == "high")
+
+        draft_quotes = [q for q in quotes if q["status"] == "draft"]
+        quote_pipeline = round(sum(q["total"] for q in draft_quotes), 2)
+
+        top_overdue = [
+            {
+                "id": i["id"],
+                "customer": i["customer"],
+                "amount": i["amount"],
+                "days_overdue": i["days_overdue"],
+            }
+            for i in sorted(overdue, key=lambda x: x["amount"], reverse=True)[:5]
+        ]
+
+        # Revenue by month for the trailing 6 months (incl. the current one).
+        months: list[str] = []
+        y, m = self._today.year, self._today.month
+        for _ in range(6):
+            months.append(f"{y:04d}-{m:02d}")
+            m -= 1
+            if m == 0:
+                m, y = 12, y - 1
+        months.reverse()
+        collected_by_month: dict[str, float] = defaultdict(float)
+        billed_by_month: dict[str, float] = defaultdict(float)
+        for inv in invoices:
+            if not inv["issued_date"]:
+                continue
+            key = inv["issued_date"][:7]
+            billed_by_month[key] += inv["amount"]
+            if inv["status"] == "paid":
+                collected_by_month[key] += inv["amount"]
+        revenue_by_month = [
+            {
+                "month": mk,
+                "label": _MONTH_LABELS[int(mk[5:7]) - 1],
+                "collected": round(collected_by_month.get(mk, 0.0), 2),
+                "billed": round(billed_by_month.get(mk, 0.0), 2),
+            }
+            for mk in months
+        ]
+
+        return {
+            "revenue_collected": revenue_collected,
+            "outstanding": outstanding,
+            "overdue_amount": overdue_amount,
+            "overdue_count": len(overdue),
+            "billed_total": billed_total,
+            "collection_rate": collection_rate,
+            "avg_invoice": avg_invoice,
+            "invoices_total": len(invoices),
+            "invoices_paid": len(paid),
+            "invoices_unpaid": len(unpaid),
+            "customers_total": len(customers),
+            "active_customers": active_customers,
+            "repeat_customers": repeat_customers,
+            "repeat_rate": repeat_rate,
+            "jobs_total": len(jobs),
+            "active_jobs": active_jobs,
+            "high_priority_jobs": high_priority_jobs,
+            "jobs_by_status": jobs_by_status,
+            "quotes_count": len(quotes),
+            "quote_pipeline": quote_pipeline,
+            "top_overdue": top_overdue,
+            "revenue_by_month": revenue_by_month,
+        }
 
     @staticmethod
     def _quote_dict(q: models.Quote) -> dict[str, Any]:

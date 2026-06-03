@@ -112,3 +112,42 @@ export interface Message {
   body: string;
   status: string;
 }
+
+export interface MonthRevenue {
+  month: string;
+  label: string;
+  collected: number;
+  billed: number;
+}
+
+export interface OverdueTop {
+  id: string;
+  customer: string;
+  amount: number;
+  days_overdue: number;
+}
+
+export interface Metrics {
+  revenue_collected: number;
+  outstanding: number;
+  overdue_amount: number;
+  overdue_count: number;
+  billed_total: number;
+  collection_rate: number;
+  avg_invoice: number;
+  invoices_total: number;
+  invoices_paid: number;
+  invoices_unpaid: number;
+  customers_total: number;
+  active_customers: number;
+  repeat_customers: number;
+  repeat_rate: number;
+  jobs_total: number;
+  active_jobs: number;
+  high_priority_jobs: number;
+  jobs_by_status: Record<string, number>;
+  quotes_count: number;
+  quote_pipeline: number;
+  top_overdue: OverdueTop[];
+  revenue_by_month: MonthRevenue[];
+}

@@ -66,6 +66,12 @@ def list_customers(ops: OpsClient = Depends(get_ops)) -> list[dict]:
     return ops.list_customers()
 
 
+@router.get("/metrics")
+def get_metrics(ops: OpsClient = Depends(get_ops)) -> dict:
+    """Aggregated analytics for the dashboard (revenue, overdue, retention…)."""
+    return ops.metrics()
+
+
 # --- writes (user-entered data) -----------------------------------------
 @router.post("/customers", status_code=201)
 def create_customer(body: schemas.CustomerCreate, ops: OpsClient = Depends(get_ops)) -> dict:

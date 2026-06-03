@@ -67,6 +67,26 @@ def test_create_quote_computes_gst(client, user):
     assert q["total"] == 264.0
 
 
+def test_metrics_empty_account(client, user):
+    m = client.get("/ops/metrics", headers=user["headers"]).json()
+    assert m["invoices_total"] == 0
+    assert m["revenue_collected"] == 0
+    assert m["collection_rate"] == 0.0
+    assert len(m["revenue_by_month"]) == 6
+
+
+def test_metrics_seeded_account(seeded_user, client):
+    m = client.get("/ops/metrics", headers=seeded_user["headers"]).json()
+    assert m["invoices_total"] >= 1
+    assert m["overdue_count"] >= 1
+    assert m["overdue_amount"] > 0
+    assert m["customers_total"] >= 10
+    # collected + outstanding should reconcile to billed_total
+    assert round(m["revenue_collected"] + m["outstanding"], 2) == m["billed_total"]
+    assert 0.0 <= m["collection_rate"] <= 1.0
+    assert len(m["top_overdue"]) >= 1
+
+
 def test_create_invoice(client, user):
     h = user["headers"]
     cust = client.post("/ops/customers", headers=h, json={"name": "Inv Co"}).json()

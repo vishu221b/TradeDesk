@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { LabelHTMLAttributes, ReactNode, useState } from "react";
 import { opsApi } from "../api/endpoints";
 import { apiError } from "../api/client";
 import type { Customer } from "../api/types";
@@ -63,10 +63,10 @@ export function AddDataModal({ open, onClose, tab, customers, onSaved }: Props) 
     }
   };
 
-  const Field = ({ k, label, ...rest }: { k: string; label: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
+  const Field = ({ k, label, ...rest }: { k: string; label: React.LabelHTMLAttributes<HTMLLabelElement> | any } & React.InputHTMLAttributes<HTMLInputElement>) => (
     <div>
       <label className="mb-1 block text-sm font-medium">{label}</label>
-      <input className="input" value={form[k] ?? ""} onChange={(e) => set(k, e.target.value)} {...rest} />
+      <input id={k} className="input" value={form[k] ?? ""} onChange={(e) => set(k, e.target.value)} {...rest}/>
     </div>
   );
 

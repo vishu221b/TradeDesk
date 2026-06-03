@@ -3,9 +3,11 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { apiError } from "../api/client";
 import { Button } from "../components/ui";
-import { Bolt, Moon, Sun } from "../components/icons";
+import { Particles } from "../components/Particles";
+import { Aurora } from "../components/Aurora";
+import { ArrowLeft, Bolt, Moon, Sun } from "../components/icons";
 
-export function Login() {
+export function Login({ onBack }: { onBack?: () => void }) {
   const { login, register } = useAuth();
   const { theme, toggle } = useTheme();
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -35,7 +37,18 @@ export function Login() {
   };
 
   return (
-    <div className="flex min-h-full items-center justify-center p-4">
+    <div className="relative flex min-h-full items-center justify-center overflow-hidden bg-brand-radial p-4">
+      <Aurora />
+      <Particles quantity={60} />
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="btn-ghost fixed left-4 top-4 px-2.5 py-2"
+          aria-label="Back to home"
+        >
+          <ArrowLeft />
+        </button>
+      )}
       <button
         onClick={toggle}
         className="btn-ghost fixed right-4 top-4 px-2.5 py-2"
@@ -44,18 +57,20 @@ export function Login() {
         {theme === "dark" ? <Sun /> : <Moon />}
       </button>
 
-      <div className="w-full max-w-sm">
+      <div className="relative z-10 w-full max-w-sm">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-white">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-glow motion-safe:animate-pulse-glow">
             <Bolt />
           </div>
-          <h1 className="text-2xl font-bold">TradeDesk</h1>
+          <h1 className="text-2xl font-bold">
+            Trade<span className="brand-text">Desk</span>
+          </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             AI job desk for trade & field-service operations
           </p>
         </div>
 
-        <form onSubmit={submit} className="card space-y-4 p-6">
+        <form onSubmit={submit} className="glass glow-border space-y-4 p-6">
           <div className="flex rounded-lg bg-gray-100 p-1 text-sm dark:bg-white/5">
             {(["login", "register"] as const).map((m) => (
               <button

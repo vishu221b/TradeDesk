@@ -17,3 +17,7 @@ Object.defineProperty(window, "matchMedia", {
 
 // jsdom Element lacks scrollTo; ChatView calls it.
 Element.prototype.scrollTo = Element.prototype.scrollTo || (() => {});
+
+// jsdom logs + throws on canvas getContext; the Particles backdrop calls it.
+// Return null so the component no-ops quietly instead of spamming stderr.
+HTMLCanvasElement.prototype.getContext = () => null;

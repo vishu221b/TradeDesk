@@ -8,6 +8,7 @@ import type {
   Invoice,
   Job,
   Message,
+  Metrics,
   ProviderInfo,
   Quote,
   TokenResponse,
@@ -48,6 +49,7 @@ export const opsApi = {
   quotes: () => api.get<Quote[]>("/ops/quotes").then((r) => r.data),
   messages: () => api.get<Message[]>("/ops/messages").then((r) => r.data),
   customers: () => api.get<Customer[]>("/ops/customers").then((r) => r.data),
+  metrics: () => api.get<Metrics>("/ops/metrics").then((r) => r.data),
   loadSample: () => api.post("/ops/load-sample-data").then((r) => r.data),
   createCustomer: (body: Partial<Customer>) =>
     api.post<Customer>("/ops/customers", body).then((r) => r.data),
