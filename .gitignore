@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# SQLite databases (created + seeded at runtime)
+data/*.db
+data/*.db-journal
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/

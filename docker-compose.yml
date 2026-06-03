@@ -1,0 +1,34 @@
+# Full-stack TradeDesk: FastAPI backend + nginx-served React frontend.
+#
+#   docker compose up --build      → UI at http://localhost:8080
+#
+# Provider keys are optional — the app runs on the built-in `mock` provider with
+# none set. Add the ones you want to .env (see .env.example).
+
+services:
+  backend:
+    build: .
+    environment:
+      # Generate strong values for production:
+      #   TRADEDESK_SECRET_KEY:  openssl rand -hex 32
+      #   TRADEDESK_FERNET_KEY:  python -c "from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())"
+      TRADEDESK_SECRET_KEY: ${TRADEDESK_SECRET_KEY:-dev-insecure-secret-change-me}
+      TRADEDESK_FERNET_KEY: ${TRADEDESK_FERNET_KEY:-}
+      TRADEDESK_DATABASE_URL: ${TRADEDESK_DATABASE_URL:-sqlite:////app/data/tradedesk.db}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes:
+      - tradedesk_data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  tradedesk_data:
