@@ -95,3 +95,55 @@ def test_create_invoice(client, user):
     })
     assert inv.status_code == 201
     assert inv.json()["id"].startswith("INV-")
+
+
+def test_update_customer(client, user):
+    h = user["headers"]
+    cust = client.post("/ops/customers", headers=h, json={"name": "Old Name"}).json()
+    r = client.put(f"/ops/customers/{cust['id']}", headers=h, json={"name": "New Name", "phone": "0400"})
+    assert r.status_code == 200
+    assert r.json()["name"] == "New Name"
+    assert r.json()["phone"] == "0400"
+    # unknown ref -> 404
+    assert client.put("/ops/customers/CUST-0000", headers=h, json={"name": "x"}).status_code == 404
+
+
+def test_update_invoice_status(client, user):
+    h = user["headers"]
+    cust = client.post("/ops/customers", headers=h, json={"name": "Pay Co"}).json()
+    inv = client.post("/ops/invoices", headers=h, json={"customer_ref": cust["id"], "amount": 50.0}).json()
+    r = client.put(f"/ops/invoices/{inv['id']}", headers=h, json={"status": "paid"})
+    assert r.status_code == 200
+    assert r.json()["status"] == "paid"
+
+
+def test_update_quote_recomputes_gst(client, user):
+    h = user["headers"]
+    cust = client.post("/ops/customers", headers=h, json={"name": "Quote Edit Co"}).json()
+    job = client.post("/ops/jobs", headers=h, json={"customer_ref": cust["id"], "title": "J"}).json()
+    q = client.post("/ops/quotes", headers=h, json={
+        "job_ref": job["id"],
+        "line_items": [{"description": "Cable", "qty": 10, "unit_price": 5.0}],
+        "labour_hours": 2,
+    }).json()
+    # Edit: bump labour to 4h, materials now 100 -> labour 380, subtotal 480, gst 48, total 528
+    r = client.put(f"/ops/quotes/{q['id']}", headers=h, json={
+        "line_items": [{"description": "Cable", "qty": 20, "unit_price": 5.0}],
+        "labour_hours": 4,
+    }).json()
+    assert r["materials_total"] == 100.0
+    assert r["labour_total"] == 380.0
+    assert r["total"] == 528.0
+
+
+def test_soft_delete_hides_row(client, user):
+    h = user["headers"]
+    cust = client.post("/ops/customers", headers=h, json={"name": "Gone Co"}).json()
+    assert len(client.get("/ops/customers", headers=h).json()) == 1
+    d = client.delete(f"/ops/customers/{cust['id']}", headers=h)
+    assert d.status_code == 200
+    # vanishes from reads
+    assert client.get("/ops/customers", headers=h).json() == []
+    # second delete / update of a gone row -> 404
+    assert client.delete(f"/ops/customers/{cust['id']}", headers=h).status_code == 404
+    assert client.put(f"/ops/customers/{cust['id']}", headers=h, json={"name": "x"}).status_code == 404

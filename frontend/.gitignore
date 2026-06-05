@@ -5,3 +5,6 @@ dist-ssr
 .env
 .vite
 coverage
+
+# TS incremental build info
+*.tsbuildinfo

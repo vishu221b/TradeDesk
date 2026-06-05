@@ -128,6 +128,10 @@ auth, per-user persistence, and a real web frontend.
   can't see live data rather than guessing.
 - **Everything is user-scoped.** Never query a business table without filtering by
   `user_id`; always go through `OpsClient`, which does this for you.
+- **Deletes are soft.** Business rows carry an `is_active` flag; deleting sets it
+  `False`. All reads/updates filter `is_active == True` (via `OpsClient`), so a
+  deleted row vanishes everywhere but is never erased. Keep that filter on any new
+  read/update path.
 - Money is AUD, ex-GST unless stated; GST (10%) is computed in `OpsClient`.
 - **No keys required to run/test.** Keep the `mock` provider working and keyless.
 - Seed dates are generated relative to `date.today()` so overdue invoices stay

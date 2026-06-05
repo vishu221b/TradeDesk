@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -53,6 +54,7 @@ class Customer(Base):
     email: Mapped[str] = mapped_column(String(255), default="")
     phone: Mapped[str] = mapped_column(String(64), default="")
     site_address: Mapped[str] = mapped_column(String(512), default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -71,6 +73,7 @@ class Job(Base):
     assigned_tech: Mapped[str | None] = mapped_column(String(128), default=None)
     description: Mapped[str] = mapped_column(Text, default="")
     notes: Mapped[str] = mapped_column(Text, default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -87,6 +90,7 @@ class Invoice(Base):
     issued_date: Mapped[str | None] = mapped_column(String(16), default=None)
     due_date: Mapped[str | None] = mapped_column(String(16), default=None)
     status: Mapped[str] = mapped_column(String(16), default="unpaid")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -109,6 +113,7 @@ class Quote(Base):
     total: Mapped[float] = mapped_column(Float, default=0.0)
     notes: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(16), default="draft")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -123,6 +128,7 @@ class Message(Base):
     purpose: Mapped[str] = mapped_column(String(32), default="general")
     body: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(16), default="draft")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 

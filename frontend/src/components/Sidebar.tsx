@@ -1,40 +1,60 @@
+import { useLocation, useNavigate } from "react-router-dom";
 import { useChat, NEW_KEY } from "../context/ChatContext";
-import { Bolt, ChartBar, Chat, Database, Home, Plus, Settings, Spinner, Trash } from "./icons";
+import { viewFromPath, type DataTab, type View } from "../lib/nav";
+import {
+  Bolt,
+  Briefcase,
+  ChartBar,
+  Chat,
+  FileSign,
+  FileText,
+  Home,
+  Mail,
+  Plus,
+  Settings,
+  Spinner,
+  Trash,
+  Users,
+} from "./icons";
 
-export type View = "home" | "chat" | "data" | "settings";
-
-interface Props {
-  view: View;
-  setView: (v: View) => void;
-}
+export type { DataTab, View };
 
 const NAV: { id: View; label: string; icon: typeof Chat }[] = [
   { id: "home", label: "Home", icon: Home },
   { id: "chat", label: "Chat", icon: Chat },
-  { id: "data", label: "Data", icon: Database },
-  { id: "settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar({ view, setView }: Props) {
+const DATA_NAV: { id: DataTab; label: string; icon: typeof Chat }[] = [
+  { id: "jobs", label: "Jobs", icon: Briefcase },
+  { id: "invoices", label: "Invoices", icon: FileText },
+  { id: "quotes", label: "Quotes", icon: FileSign },
+  { id: "messages", label: "Messages", icon: Mail },
+  { id: "customers", label: "Customers", icon: Users },
+];
+
+export function Sidebar() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const view = viewFromPath(location.pathname);
+  const isChat = location.pathname.startsWith("/chat");
+
   const {
     conversations,
     activeKey,
     activeConversationId,
-    selectConversation,
     newChat,
     deleteConversation,
     session,
     sendingKeys,
   } = useChat();
 
-  const open = (id: number) => {
-    selectConversation(id);
-    setView("chat");
+  const go = (v: View) => navigate(v === "home" ? "/" : `/${v}`);
+  const open = (id: number) => navigate(`/chat/${id}`);
+  const removeConversation = async (id: number) => {
+    await deleteConversation(id);
+    if (activeConversationId === id) navigate("/chat");
   };
 
-  // A new chat that is mid-send must stay listed even after the user navigates
-  // to another conversation — otherwise the in-flight chat vanishes until it
-  // resolves. Show it whenever the draft is active OR a send is in flight.
   const newPending = sendingKeys.has(NEW_KEY);
   const newActive = activeKey === NEW_KEY;
   const showNewItem = newActive || newPending;
@@ -43,8 +63,15 @@ export function Sidebar({ view, setView }: Props) {
 
   const openNew = () => {
     newChat();
-    setView("chat");
+    navigate("/chat");
   };
+
+  const navBtn = (active: boolean) =>
+    `group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
+      active
+        ? "bg-accent/10 text-accent shadow-[inset_0_0_0_1px_rgba(124,58,237,0.25)] dark:bg-accent/15"
+        : "text-gray-600 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"
+    }`;
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-edge-light bg-panel-light dark:border-edge-dark dark:bg-panel-dark/80 dark:backdrop-blur-xl">
@@ -61,33 +88,54 @@ export function Sidebar({ view, setView }: Props) {
         {NAV.map((n) => {
           const active = view === n.id;
           return (
-            <button
-              key={n.id}
-              onClick={() => setView(n.id)}
-              className={`group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                active
-                  ? "bg-accent/10 text-accent shadow-[inset_0_0_0_1px_rgba(124,58,237,0.25)] dark:bg-accent/15"
-                  : "text-gray-600 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"
-              }`}
-            >
+            <button key={n.id} onClick={() => go(n.id)} className={navBtn(active)}>
               <n.icon
                 className={`h-[18px] w-[18px] transition-transform group-hover:scale-110 ${
                   active ? "text-accent" : ""
                 }`}
               />
               {n.label}
-              {n.id === "chat" && view !== "chat" && sendingKeys.size > 0 && (
+              {n.id === "chat" && !isChat && sendingKeys.size > 0 && (
                 <Spinner className="ml-auto h-3.5 w-3.5 text-accent" />
               )}
             </button>
           );
         })}
+
+        {/* Data — each table is its own selectable entry. */}
+        <p className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+          Data
+        </p>
+        {DATA_NAV.map((n) => {
+          const active = view === n.id;
+          return (
+            <button key={n.id} onClick={() => go(n.id)} className={navBtn(active)}>
+              <n.icon
+                className={`h-[18px] w-[18px] transition-transform group-hover:scale-110 ${
+                  active ? "text-accent" : ""
+                }`}
+              />
+              {n.label}
+            </button>
+          );
+        })}
+
+        <div className="pt-3">
+          <button onClick={() => go("settings")} className={navBtn(view === "settings")}>
+            <Settings
+              className={`h-[18px] w-[18px] transition-transform group-hover:scale-110 ${
+                view === "settings" ? "text-accent" : ""
+              }`}
+            />
+            Settings
+          </button>
+        </div>
       </nav>
 
-      {view === "chat" && (
+      {isChat && (
         <>
           <div className="px-3 pb-2 pt-4">
-            <button onClick={newChat} className="btn-outline w-full">
+            <button onClick={openNew} className="btn-outline w-full">
               <Plus className="h-4 w-4" /> New chat
             </button>
           </div>
@@ -135,7 +183,7 @@ export function Sidebar({ view, setView }: Props) {
                     <Spinner className="h-3.5 w-3.5 text-accent" />
                   ) : (
                     <button
-                      onClick={() => deleteConversation(c.id)}
+                      onClick={() => removeConversation(c.id)}
                       className="opacity-0 transition group-hover:opacity-100"
                       aria-label="Delete conversation"
                     >
@@ -148,7 +196,7 @@ export function Sidebar({ view, setView }: Props) {
           </div>
         </>
       )}
-      {view !== "chat" && <div className="flex-1" />}
+      {!isChat && <div className="flex-1" />}
 
       <div className="hidden border-t border-edge-light px-4 py-3 text-[11px] text-gray-400 dark:border-edge-dark md:block">
         <ChartBar className="mr-1 inline h-3.5 w-3.5" /> Drafts only — nothing is auto-sent.

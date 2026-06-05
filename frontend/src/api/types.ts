@@ -70,6 +70,7 @@ export interface Job {
   id: string;
   title: string;
   customer: string;
+  customer_id: string;
   status: string;
   priority: string;
   scheduled_date: string | null;
