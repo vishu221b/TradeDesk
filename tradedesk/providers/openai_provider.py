@@ -36,11 +36,12 @@ class OpenAIProvider(LLMProvider):
 
     def complete(self, system: str, history: list, tools: list[dict]) -> LLMResponse:
         messages = [{"role": "system", "content": system}] + history
-        resp = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            tools=self._tools(tools),
-        )
+        kwargs: dict = {"model": self.model, "messages": messages}
+        # Only send `tools` when non-empty: OpenAI/Gemini reject an empty array,
+        # which would break no-tools calls (chat mode, /summarize).
+        if tools:
+            kwargs["tools"] = self._tools(tools)
+        resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
 
         calls: list[ToolCall] = []

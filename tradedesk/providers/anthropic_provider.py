@@ -29,15 +29,18 @@ class AnthropicProvider(LLMProvider):
         ]
 
     def complete(self, system: str, history: list, tools: list[dict]) -> LLMResponse:
-        resp = self.client.messages.create(
-            model=self.model,
-            max_tokens=self.max_tokens,
+        kwargs: dict = {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
             # cache_control on the system block caches tools + system together
             # (render order is tools -> system -> messages): paid once, read cheaply.
-            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            tools=self._tools(tools),
-            messages=history,
-        )
+            "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+            "messages": history,
+        }
+        # Omit `tools` entirely when empty (no-tools calls: chat mode, /summarize).
+        if tools:
+            kwargs["tools"] = self._tools(tools)
+        resp = self.client.messages.create(**kwargs)
         text = "".join(b.text for b in resp.content if b.type == "text").strip()
         calls = [
             ToolCall(id=b.id, name=b.name, input=dict(b.input))
