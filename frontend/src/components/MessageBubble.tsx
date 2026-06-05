@@ -1,5 +1,5 @@
 import type { ChatMessage } from "../api/types";
-import { ToolCallCard } from "./ToolCallCard";
+import { Wrench } from "./icons";
 
 // Minimal, safe markdown-ish rendering: bold, inline code, line breaks.
 function renderText(text: string) {
@@ -27,15 +27,17 @@ function renderText(text: string) {
 
 export function MessageBubble({
   message,
-  showToolCalls = true,
+  onShowTools,
   highlight = false,
 }: {
   message: ChatMessage;
-  showToolCalls?: boolean;
+  /** Called when the tool-call summary is clicked — opens the tool panel. */
+  onShowTools?: () => void;
   highlight?: boolean;
 }) {
   const isUser = message.role === "user";
-  const hasTools = message.tool_calls?.length > 0;
+  const toolCount = message.tool_calls?.length ?? 0;
+  const hasTools = toolCount > 0;
   return (
     <div
       data-mid={message.id}
@@ -64,18 +66,16 @@ export function MessageBubble({
             {renderText(message.content)}
           </div>
         )}
-        {hasTools && showToolCalls && (
-          <div className="space-y-1.5 text-left">
-            {message.tool_calls.map((c, i) => (
-              <ToolCallCard key={i} call={c} />
-            ))}
-          </div>
-        )}
-        {hasTools && !showToolCalls && (
-          <div className="text-left text-xs text-gray-400">
-            {message.tool_calls.length} tool call{message.tool_calls.length > 1 ? "s" : ""} · see
-            panel
-          </div>
+        {hasTools && (
+          <button
+            type="button"
+            onClick={onShowTools}
+            className="flex items-center gap-1.5 rounded-lg border border-edge-light px-2.5 py-1 text-left text-xs font-medium text-gray-500 transition hover:border-accent hover:text-accent dark:border-edge-dark"
+            title="View tool calls in the panel"
+          >
+            <Wrench className="h-3.5 w-3.5" />
+            {toolCount} tool call{toolCount > 1 ? "s" : ""} · view
+          </button>
         )}
       </div>
     </div>

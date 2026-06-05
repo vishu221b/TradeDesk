@@ -47,6 +47,12 @@ export function Workspace() {
   const [mode, setModeState] = useState<ChatMode>(
     () => (localStorage.getItem(LS.mode) as ChatMode) || "agent",
   );
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Dismiss the mobile drawer whenever the route changes (e.g. nav click).
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
 
   const setProvider = (p: string) => {
     setProviderState(p);
@@ -72,7 +78,7 @@ export function Workspace() {
   return (
     <ChatProvider>
       <div className="flex h-full">
-        <Sidebar />
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar
@@ -82,6 +88,7 @@ export function Workspace() {
             setProvider={setProvider}
             model={model}
             setModel={setModel}
+            onMenuClick={() => setSidebarOpen(true)}
           />
           <main className="min-h-0 flex-1 overflow-hidden">
             <Routes>

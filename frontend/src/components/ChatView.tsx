@@ -130,7 +130,10 @@ export function ChatView({ provider, model, mode, setMode }: Props) {
               <MessageBubble
                 key={m.id}
                 message={m}
-                showToolCalls={!toolsOpen}
+                onShowTools={() => {
+                  setToolsOpen(true);
+                  scrollToMessage(m.id);
+                }}
                 highlight={highlight === m.id}
               />
             ))}
@@ -187,11 +190,19 @@ export function ChatView({ provider, model, mode, setMode }: Props) {
         </div>
 
         {toolsOpen && (
-          <ToolPanel
-            entries={toolEntries}
-            onClose={() => setToolsOpen(false)}
-            onJump={scrollToMessage}
-          />
+          <>
+            {/* Mobile backdrop — tap to dismiss the panel. */}
+            <div
+              onClick={() => setToolsOpen(false)}
+              aria-hidden="true"
+              className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden"
+            />
+            <ToolPanel
+              entries={toolEntries}
+              onClose={() => setToolsOpen(false)}
+              onJump={scrollToMessage}
+            />
+          </>
         )}
       </div>
     </div>
@@ -208,7 +219,7 @@ function ToolPanel({
   onJump: (messageId: number) => void;
 }) {
   return (
-    <aside className="flex w-72 shrink-0 flex-col border-l border-edge-light bg-panel-light dark:border-edge-dark dark:bg-panel-dark/60 md:w-80">
+    <aside className="fixed inset-y-0 right-0 z-40 flex w-80 max-w-[85vw] shrink-0 flex-col border-l border-edge-light bg-panel-light dark:border-edge-dark dark:bg-panel-dark/95 md:static md:z-auto md:w-80 md:dark:bg-panel-dark/60">
       <div className="flex items-center gap-2 border-b border-edge-light px-4 py-2.5 dark:border-edge-dark">
         <Wrench className="h-4 w-4 text-accent" />
         <span className="text-sm font-semibold">Tool calls</span>

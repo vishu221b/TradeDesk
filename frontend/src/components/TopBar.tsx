@@ -2,7 +2,7 @@ import type { ProviderInfo } from "../api/types";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { Badge } from "./ui";
-import { Logout, Moon, Sun } from "./icons";
+import { Logout, Menu, Moon, Sun } from "./icons";
 
 interface Props {
   title: string;
@@ -11,15 +11,23 @@ interface Props {
   setProvider: (p: string) => void;
   model: string;
   setModel: (m: string) => void;
+  onMenuClick?: () => void;
 }
 
-export function TopBar({ title, providers, provider, setProvider, model, setModel }: Props) {
+export function TopBar({ title, providers, provider, setProvider, model, setModel, onMenuClick }: Props) {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   const current = providers.find((p) => p.id === provider);
 
   return (
     <header className="flex items-center gap-3 border-b border-edge-light bg-panel-light px-4 py-2.5 dark:border-edge-dark dark:bg-panel-dark md:px-6">
+      <button
+        onClick={onMenuClick}
+        className="btn-ghost -ml-1 px-2 py-2 md:hidden"
+        aria-label="Open menu"
+      >
+        <Menu />
+      </button>
       <h1 className="text-sm font-semibold">{title}</h1>
 
       <div className="ml-auto flex items-center gap-2">
