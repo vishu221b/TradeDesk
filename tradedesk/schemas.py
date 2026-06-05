@@ -132,3 +132,48 @@ class QuoteCreate(BaseModel):
     line_items: list[LineItem]
     labour_hours: float
     notes: str = ""
+
+
+# --- ops update payloads --------------------------------------------------
+# All fields optional: only the keys actually sent are applied (PATCH-style),
+# so the UI can update a subset without wiping the rest.
+class CustomerUpdate(BaseModel):
+    name: Optional[str] = None
+    contact: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    site_address: Optional[str] = None
+
+
+class JobUpdate(BaseModel):
+    customer_ref: Optional[str] = None
+    title: Optional[str] = None
+    status: Optional[Literal["quote_requested", "scheduled", "in_progress", "completed"]] = None
+    priority: Optional[Literal["low", "medium", "high"]] = None
+    scheduled_date: Optional[str] = None
+    assigned_tech: Optional[str] = None
+    description: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class InvoiceUpdate(BaseModel):
+    customer_ref: Optional[str] = None
+    job_ref: Optional[str] = None
+    amount: Optional[float] = None
+    issued_date: Optional[str] = None
+    due_date: Optional[str] = None
+    status: Optional[Literal["unpaid", "paid"]] = None
+
+
+class QuoteUpdate(BaseModel):
+    line_items: Optional[list[LineItem]] = None
+    labour_hours: Optional[float] = None
+    notes: Optional[str] = None
+    status: Optional[Literal["draft", "approved", "rejected"]] = None
+
+
+class MessageUpdate(BaseModel):
+    reference_id: Optional[str] = None
+    purpose: Optional[str] = None
+    body: Optional[str] = None
+    status: Optional[str] = None

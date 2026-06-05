@@ -25,10 +25,24 @@ function renderText(text: string) {
   });
 }
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
+export function MessageBubble({
+  message,
+  showToolCalls = true,
+  highlight = false,
+}: {
+  message: ChatMessage;
+  showToolCalls?: boolean;
+  highlight?: boolean;
+}) {
   const isUser = message.role === "user";
+  const hasTools = message.tool_calls?.length > 0;
   return (
-    <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
+    <div
+      data-mid={message.id}
+      className={`flex scroll-mt-6 gap-3 rounded-2xl transition ${
+        isUser ? "flex-row-reverse" : ""
+      } ${highlight ? "ring-2 ring-accent ring-offset-2 ring-offset-transparent" : ""}`}
+    >
       <div
         className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-semibold ${
           isUser
@@ -50,11 +64,17 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
             {renderText(message.content)}
           </div>
         )}
-        {message.tool_calls?.length > 0 && (
+        {hasTools && showToolCalls && (
           <div className="space-y-1.5 text-left">
             {message.tool_calls.map((c, i) => (
               <ToolCallCard key={i} call={c} />
             ))}
+          </div>
+        )}
+        {hasTools && !showToolCalls && (
+          <div className="text-left text-xs text-gray-400">
+            {message.tool_calls.length} tool call{message.tool_calls.length > 1 ? "s" : ""} · see
+            panel
           </div>
         )}
       </div>

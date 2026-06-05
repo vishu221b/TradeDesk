@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from . import config
@@ -17,6 +17,10 @@ from . import config
 
 class Base(DeclarativeBase):
     pass
+
+
+# Tables that gained the soft-delete ``is_active`` flag after first release.
+_SOFT_DELETE_TABLES = ("customers", "jobs", "invoices", "quotes", "messages")
 
 
 def _make_engine(url: str):
@@ -37,6 +41,29 @@ def init_db() -> None:
     from . import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _backfill_is_active()
+
+
+def _backfill_is_active() -> None:
+    """Add the ``is_active`` soft-delete column to pre-existing tables.
+
+    ``create_all`` never alters existing tables, so a database created before
+    soft-delete shipped would be missing the column. Add it (defaulting to
+    active) so older SQLite/Postgres databases keep working without a manual
+    migration. New databases already have the column and are skipped.
+    """
+    inspector = inspect(engine)
+    existing = set(inspector.get_table_names())
+    with engine.begin() as conn:
+        for table in _SOFT_DELETE_TABLES:
+            if table not in existing:
+                continue
+            cols = {c["name"] for c in inspector.get_columns(table)}
+            if "is_active" in cols:
+                continue
+            conn.execute(
+                text(f"ALTER TABLE {table} ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1")
+            )
 
 
 def get_session() -> Iterator[Session]:

@@ -57,4 +57,16 @@ export const opsApi = {
     api.post<Job>("/ops/jobs", body).then((r) => r.data),
   createInvoice: (body: Record<string, unknown>) =>
     api.post<Invoice>("/ops/invoices", body).then((r) => r.data),
+  updateCustomer: (ref: string, body: Record<string, unknown>) =>
+    api.put<Customer>(`/ops/customers/${ref}`, body).then((r) => r.data),
+  updateJob: (ref: string, body: Record<string, unknown>) =>
+    api.put<Job>(`/ops/jobs/${ref}`, body).then((r) => r.data),
+  updateInvoice: (ref: string, body: Record<string, unknown>) =>
+    api.put<Invoice>(`/ops/invoices/${ref}`, body).then((r) => r.data),
+  updateQuote: (ref: string, body: Record<string, unknown>) =>
+    api.put<Quote>(`/ops/quotes/${ref}`, body).then((r) => r.data),
+  updateMessage: (ref: string, body: Record<string, unknown>) =>
+    api.put<Message>(`/ops/messages/${ref}`, body).then((r) => r.data),
+  remove: (entity: "customers" | "jobs" | "invoices" | "quotes" | "messages", ref: string) =>
+    api.delete(`/ops/${entity}/${ref}`).then((r) => r.data),
 };

@@ -1,10 +1,17 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "../context/ChatContext";
-import type { ChatMode } from "../api/types";
+import type { ChatMode, ToolCall } from "../api/types";
 import { MessageBubble } from "./MessageBubble";
+import { ToolCallCard } from "./ToolCallCard";
 import { Button } from "./ui";
 import { Particles } from "./Particles";
-import { Bolt, Chat as ChatIcon, Send, Spinner } from "./icons";
+import { Bolt, Chat as ChatIcon, Send, Spinner, Wrench } from "./icons";
+
+interface ToolEntry {
+  messageId: number;
+  index: number;
+  call: ToolCall;
+}
 
 const EXAMPLES = [
   "Which invoices are overdue, and draft a reminder for the worst one.",
@@ -24,11 +31,30 @@ export function ChatView({ provider, model, mode, setMode }: Props) {
   const { activeKey, session, send, setInput } = useChat();
   const { messages, input, sending, error } = session(activeKey);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [highlight, setHighlight] = useState<number | null>(null);
   const settings = { provider, model, mode };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
+
+  // Flatten every tool call in the transcript, keeping a pointer back to the
+  // message it came from so the panel can scroll/highlight the exact turn.
+  const toolEntries = useMemo<ToolEntry[]>(() => {
+    const out: ToolEntry[] = [];
+    for (const m of messages) {
+      m.tool_calls?.forEach((call, index) => out.push({ messageId: m.id, index, call }));
+    }
+    return out;
+  }, [messages]);
+
+  const scrollToMessage = (id: number) => {
+    const el = scrollRef.current?.querySelector(`[data-mid="${id}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlight(id);
+    window.setTimeout(() => setHighlight((h) => (h === id ? null : h)), 1600);
+  };
 
   const submit = () => send(activeKey, input, settings);
   const empty = messages.length === 0;
@@ -43,13 +69,33 @@ export function ChatView({ provider, model, mode, setMode }: Props) {
             ? "Calls tools against your live data to answer and draft."
             : "Plain conversation — switch to Agent for live data."}
         </p>
-        {sending && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs text-accent">
-            <Spinner className="h-3.5 w-3.5" /> Working…
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-3">
+          {sending && (
+            <span className="flex items-center gap-1.5 text-xs text-accent">
+              <Spinner className="h-3.5 w-3.5" /> Working…
+            </span>
+          )}
+          <button
+            onClick={() => setToolsOpen((o) => !o)}
+            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+              toolsOpen
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-edge-light text-gray-500 hover:text-accent dark:border-edge-dark"
+            }`}
+            title="Toggle the tool-call panel"
+          >
+            <Wrench className="h-3.5 w-3.5" /> Tools
+            {toolEntries.length > 0 && (
+              <span className="rounded-full bg-accent/15 px-1.5 text-[10px] font-semibold text-accent">
+                {toolEntries.length}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
       {/* transcript */}
       <div ref={scrollRef} className="relative flex-1 overflow-y-auto px-4 py-6 md:px-8">
         {empty ? (
@@ -81,7 +127,12 @@ export function ChatView({ provider, model, mode, setMode }: Props) {
         ) : (
           <div className="mx-auto flex max-w-3xl flex-col gap-5">
             {messages.map((m) => (
-              <MessageBubble key={m.id} message={m} />
+              <MessageBubble
+                key={m.id}
+                message={m}
+                showToolCalls={!toolsOpen}
+                highlight={highlight === m.id}
+              />
             ))}
             {sending && (
               <div className="flex items-center gap-3">
@@ -133,7 +184,61 @@ export function ChatView({ provider, model, mode, setMode }: Props) {
           </p>
         </div>
       </div>
+        </div>
+
+        {toolsOpen && (
+          <ToolPanel
+            entries={toolEntries}
+            onClose={() => setToolsOpen(false)}
+            onJump={scrollToMessage}
+          />
+        )}
+      </div>
     </div>
+  );
+}
+
+function ToolPanel({
+  entries,
+  onClose,
+  onJump,
+}: {
+  entries: ToolEntry[];
+  onClose: () => void;
+  onJump: (messageId: number) => void;
+}) {
+  return (
+    <aside className="flex w-72 shrink-0 flex-col border-l border-edge-light bg-panel-light dark:border-edge-dark dark:bg-panel-dark/60 md:w-80">
+      <div className="flex items-center gap-2 border-b border-edge-light px-4 py-2.5 dark:border-edge-dark">
+        <Wrench className="h-4 w-4 text-accent" />
+        <span className="text-sm font-semibold">Tool calls</span>
+        <span className="text-xs text-gray-400">({entries.length})</span>
+        <button onClick={onClose} className="btn-ghost ml-auto px-2 py-1 text-xs" aria-label="Close tool panel">
+          ✕
+        </button>
+      </div>
+      <div className="flex-1 space-y-2 overflow-y-auto p-3">
+        {entries.length === 0 ? (
+          <p className="px-1 py-6 text-center text-xs text-gray-400">
+            No tool calls yet. Ask the agent something in Agent mode.
+          </p>
+        ) : (
+          entries.map((e, i) => (
+            <div key={`${e.messageId}-${e.index}`} className="space-y-1.5">
+              <button
+                onClick={() => onJump(e.messageId)}
+                className="flex w-full items-center gap-1.5 text-left text-[11px] text-gray-400 hover:text-accent"
+                title="Jump to the message that triggered this call"
+              >
+                <span className="font-mono">#{i + 1}</span>
+                <span className="truncate">jump to message ↗</span>
+              </button>
+              <ToolCallCard call={e.call} />
+            </div>
+          ))
+        )}
+      </div>
+    </aside>
   );
 }
 

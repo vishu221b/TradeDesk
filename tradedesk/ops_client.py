@@ -40,7 +40,10 @@ class OpsClient:
     def _customers(self) -> list[models.Customer]:
         return list(
             self.db.scalars(
-                select(models.Customer).where(models.Customer.user_id == self.user_id)
+                select(models.Customer).where(
+                    models.Customer.user_id == self.user_id,
+                    models.Customer.is_active.is_(True),
+                )
             )
         )
 
@@ -49,6 +52,7 @@ class OpsClient:
             select(models.Customer).where(
                 models.Customer.user_id == self.user_id,
                 models.Customer.ref == customer_ref,
+                models.Customer.is_active.is_(True),
             )
         )
         return c.name if c else customer_ref
@@ -78,7 +82,9 @@ class OpsClient:
     def search_jobs(
         self, status: Optional[str] = None, customer_name: Optional[str] = None
     ) -> list[dict[str, Any]]:
-        q = select(models.Job).where(models.Job.user_id == self.user_id)
+        q = select(models.Job).where(
+            models.Job.user_id == self.user_id, models.Job.is_active.is_(True)
+        )
         if status:
             q = q.where(models.Job.status == status)
         out = []
@@ -90,6 +96,7 @@ class OpsClient:
                 "id": j.ref,
                 "title": j.title,
                 "customer": cust,
+                "customer_id": j.customer_ref,
                 "status": j.status,
                 "priority": j.priority,
                 "scheduled_date": j.scheduled_date,
@@ -100,7 +107,9 @@ class OpsClient:
     def get_job(self, job_id: str) -> Optional[dict[str, Any]]:
         j = self.db.scalar(
             select(models.Job).where(
-                models.Job.user_id == self.user_id, models.Job.ref == job_id
+                models.Job.user_id == self.user_id,
+                models.Job.ref == job_id,
+                models.Job.is_active.is_(True),
             )
         )
         if j is None:
@@ -131,7 +140,9 @@ class OpsClient:
     def list_invoices(self, only_overdue: bool = False) -> list[dict[str, Any]]:
         out = []
         for inv in self.db.scalars(
-            select(models.Invoice).where(models.Invoice.user_id == self.user_id)
+            select(models.Invoice).where(
+                models.Invoice.user_id == self.user_id, models.Invoice.is_active.is_(True)
+            )
         ):
             overdue = self._is_overdue(inv)
             if only_overdue and not overdue:
@@ -157,7 +168,9 @@ class OpsClient:
     def list_quotes(self) -> list[dict[str, Any]]:
         out = []
         for q in self.db.scalars(
-            select(models.Quote).where(models.Quote.user_id == self.user_id).order_by(models.Quote.id)
+            select(models.Quote)
+            .where(models.Quote.user_id == self.user_id, models.Quote.is_active.is_(True))
+            .order_by(models.Quote.id)
         ):
             out.append(self._quote_dict(q))
         return out
@@ -165,7 +178,9 @@ class OpsClient:
     def list_messages(self) -> list[dict[str, Any]]:
         out = []
         for m in self.db.scalars(
-            select(models.Message).where(models.Message.user_id == self.user_id).order_by(models.Message.id)
+            select(models.Message)
+            .where(models.Message.user_id == self.user_id, models.Message.is_active.is_(True))
+            .order_by(models.Message.id)
         ):
             out.append({
                 "id": m.ref, "reference_id": m.reference_id, "purpose": m.purpose,
@@ -178,6 +193,7 @@ class OpsClient:
             select(models.Customer.id).where(
                 models.Customer.user_id == self.user_id,
                 models.Customer.ref == customer_ref,
+                models.Customer.is_active.is_(True),
             )
         ) is not None
 
@@ -292,6 +308,22 @@ class OpsClient:
         }
 
     @staticmethod
+    def _quote_totals(line_items: list[dict[str, Any]], labour_hours: float) -> dict[str, float]:
+        """Compute materials/labour/GST/total from line items + labour hours."""
+        materials_total = round(sum(li["qty"] * li["unit_price"] for li in line_items), 2)
+        labour_total = round(labour_hours * LABOUR_RATE_PER_HOUR, 2)
+        subtotal = round(materials_total + labour_total, 2)
+        gst = round(subtotal * GST_RATE, 2)
+        total = round(subtotal + gst, 2)
+        return {
+            "materials_total": materials_total,
+            "labour_total": labour_total,
+            "subtotal": subtotal,
+            "gst": gst,
+            "total": total,
+        }
+
+    @staticmethod
     def _quote_dict(q: models.Quote) -> dict[str, Any]:
         return {
             "id": q.ref, "job_id": q.job_ref, "customer": q.customer,
@@ -309,11 +341,7 @@ class OpsClient:
         if not job:
             raise ValueError(f"No job found with id {job_id}")
 
-        materials_total = round(sum(li["qty"] * li["unit_price"] for li in line_items), 2)
-        labour_total = round(labour_hours * LABOUR_RATE_PER_HOUR, 2)
-        subtotal = round(materials_total + labour_total, 2)
-        gst = round(subtotal * GST_RATE, 2)
-        total = round(subtotal + gst, 2)
+        totals = self._quote_totals(line_items, labour_hours)
 
         quote = models.Quote(
             user_id=self.user_id,
@@ -323,13 +351,9 @@ class OpsClient:
             line_items=line_items,
             labour_hours=labour_hours,
             labour_rate=LABOUR_RATE_PER_HOUR,
-            materials_total=materials_total,
-            labour_total=labour_total,
-            subtotal=subtotal,
-            gst=gst,
-            total=total,
             notes=notes,
             status="draft",
+            **totals,
         )
         self.db.add(quote)
         self.db.commit()
@@ -394,3 +418,104 @@ class OpsClient:
             "amount": inv.amount, "issued_date": inv.issued_date,
             "due_date": inv.due_date, "status": inv.status,
         }
+
+    # --- updates (user edits) -------------------------------------------
+    def _get_row(self, model, ref: str):
+        """Fetch a single *active* row by ref for this user (None if missing)."""
+        return self.db.scalar(
+            select(model).where(
+                model.user_id == self.user_id,
+                model.ref == ref,
+                model.is_active.is_(True),
+            )
+        )
+
+    def update_customer(self, ref: str, **fields: Any) -> dict[str, Any]:
+        c = self._get_row(models.Customer, ref)
+        if c is None:
+            raise ValueError(f"No customer {ref}")
+        for k, v in fields.items():
+            setattr(c, k, v)
+        self.db.commit()
+        self.db.refresh(c)
+        return {
+            "id": c.ref, "name": c.name, "contact": c.contact, "email": c.email,
+            "phone": c.phone, "site_address": c.site_address,
+        }
+
+    def update_job(self, ref: str, **fields: Any) -> dict[str, Any]:
+        j = self._get_row(models.Job, ref)
+        if j is None:
+            raise ValueError(f"No job {ref}")
+        if "customer_ref" in fields and not self.get_job_customer_exists(fields["customer_ref"]):
+            raise ValueError(f"Unknown customer {fields['customer_ref']}")
+        for k, v in fields.items():
+            setattr(j, k, v)
+        self.db.commit()
+        self.db.refresh(j)
+        return self.get_job(j.ref)
+
+    def update_invoice(self, ref: str, **fields: Any) -> dict[str, Any]:
+        inv = self._get_row(models.Invoice, ref)
+        if inv is None:
+            raise ValueError(f"No invoice {ref}")
+        if "customer_ref" in fields and not self.get_job_customer_exists(fields["customer_ref"]):
+            raise ValueError(f"Unknown customer {fields['customer_ref']}")
+        for k, v in fields.items():
+            setattr(inv, k, v)
+        self.db.commit()
+        # Return the full read shape (with overdue) for a consistent UI refresh.
+        for row in self.list_invoices():
+            if row["id"] == ref:
+                return row
+        return {"id": ref}
+
+    def update_message(self, ref: str, **fields: Any) -> dict[str, Any]:
+        m = self._get_row(models.Message, ref)
+        if m is None:
+            raise ValueError(f"No message {ref}")
+        for k, v in fields.items():
+            setattr(m, k, v)
+        self.db.commit()
+        self.db.refresh(m)
+        return {
+            "id": m.ref, "reference_id": m.reference_id, "purpose": m.purpose,
+            "body": m.body, "status": m.status,
+        }
+
+    def update_quote(self, ref: str, **fields: Any) -> dict[str, Any]:
+        q = self._get_row(models.Quote, ref)
+        if q is None:
+            raise ValueError(f"No quote {ref}")
+        for k, v in fields.items():
+            setattr(q, k, v)
+        # Recompute money whenever line items or labour change.
+        if "line_items" in fields or "labour_hours" in fields:
+            totals = self._quote_totals(q.line_items, q.labour_hours)
+            for k, v in totals.items():
+                setattr(q, k, v)
+            q.labour_rate = LABOUR_RATE_PER_HOUR
+        self.db.commit()
+        self.db.refresh(q)
+        return self._quote_dict(q)
+
+    # --- soft deletes ----------------------------------------------------
+    _DELETE_MODELS = {
+        "customer": models.Customer,
+        "job": models.Job,
+        "invoice": models.Invoice,
+        "quote": models.Quote,
+        "message": models.Message,
+    }
+
+    def soft_delete(self, entity: str, ref: str) -> dict[str, Any]:
+        """Mark a row inactive so it disappears from reads but is never erased."""
+        model = self._DELETE_MODELS.get(entity)
+        if model is None:
+            raise ValueError(f"Unknown entity {entity}")
+        row = self._get_row(model, ref)
+        if row is None:
+            raise ValueError(f"No {entity} {ref}")
+        row.is_active = False
+        self.db.commit()
+        return {"deleted": ref, "entity": entity}

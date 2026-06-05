@@ -103,6 +103,65 @@ def create_quote(body: schemas.QuoteCreate, ops: OpsClient = Depends(get_ops)) -
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+# --- updates (edit existing rows) ---------------------------------------
+@router.put("/customers/{ref}")
+def update_customer(ref: str, body: schemas.CustomerUpdate, ops: OpsClient = Depends(get_ops)) -> dict:
+    try:
+        return ops.update_customer(ref, **body.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.put("/jobs/{ref}")
+def update_job(ref: str, body: schemas.JobUpdate, ops: OpsClient = Depends(get_ops)) -> dict:
+    try:
+        return ops.update_job(ref, **body.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.put("/invoices/{ref}")
+def update_invoice(ref: str, body: schemas.InvoiceUpdate, ops: OpsClient = Depends(get_ops)) -> dict:
+    try:
+        return ops.update_invoice(ref, **body.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.put("/quotes/{ref}")
+def update_quote(ref: str, body: schemas.QuoteUpdate, ops: OpsClient = Depends(get_ops)) -> dict:
+    fields = body.model_dump(exclude_unset=True)
+    if "line_items" in fields:
+        fields["line_items"] = [
+            li if isinstance(li, dict) else li.model_dump() for li in (body.line_items or [])
+        ]
+    try:
+        return ops.update_quote(ref, **fields)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.put("/messages/{ref}")
+def update_message(ref: str, body: schemas.MessageUpdate, ops: OpsClient = Depends(get_ops)) -> dict:
+    try:
+        return ops.update_message(ref, **body.model_dump(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+# --- soft deletes -------------------------------------------------------
+@router.delete("/{entity}/{ref}")
+def delete_entity(entity: str, ref: str, ops: OpsClient = Depends(get_ops)) -> dict:
+    """Soft-delete a row (sets ``is_active=False``); it vanishes from all reads."""
+    if entity not in ("customers", "jobs", "invoices", "quotes", "messages"):
+        raise HTTPException(status_code=404, detail=f"Unknown entity {entity}")
+    singular = entity[:-1]  # customers -> customer
+    try:
+        return ops.soft_delete(singular, ref)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
 # --- sample data ---------------------------------------------------------
 @router.post("/load-sample-data")
 def load_sample(
