@@ -56,6 +56,13 @@ describe("ChatView", () => {
       expect.objectContaining({ message: "what is overdue?", provider: "mock", mode: "agent" }),
     );
     expect(await screen.findByText("I found 4 overdue invoices.")).toBeInTheDocument();
+
+    // The bubble only shows a summary — the raw tool name stays hidden…
+    const summary = await screen.findByText(/1 tool call · view/i);
+    expect(screen.queryByText("list_invoices")).not.toBeInTheDocument();
+
+    // …until the user opens the tool panel via the summary.
+    await userEvent.click(summary);
     expect(screen.getByText("list_invoices")).toBeInTheDocument();
   });
 

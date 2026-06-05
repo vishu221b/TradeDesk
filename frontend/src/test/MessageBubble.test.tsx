@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MessageBubble } from "../components/MessageBubble";
@@ -11,7 +11,7 @@ describe("MessageBubble", () => {
     expect(screen.getByText("world").tagName).toBe("STRONG");
   });
 
-  it("shows tool calls and reveals input/output on expand", async () => {
+  it("shows a compact tool-call summary, not the full call details", () => {
     const m: ChatMessage = {
       id: 2,
       role: "assistant",
@@ -19,12 +19,29 @@ describe("MessageBubble", () => {
       tool_calls: [{ name: "list_invoices", input: { only_overdue: true }, output: [{ id: "INV-1" }] }],
     };
     render(<MessageBubble message={m} />);
-    const toggle = screen.getByText("list_invoices");
-    expect(toggle).toBeInTheDocument();
 
-    await userEvent.click(toggle);
-    expect(screen.getByText("Input")).toBeInTheDocument();
-    expect(screen.getByText("Output")).toBeInTheDocument();
-    expect(screen.getByText(/INV-1/)).toBeInTheDocument();
+    // The summary is shown inline…
+    expect(screen.getByText(/1 tool call · view/i)).toBeInTheDocument();
+    // …but the raw tool name / output never render inside the bubble.
+    expect(screen.queryByText("list_invoices")).not.toBeInTheDocument();
+    expect(screen.queryByText(/INV-1/)).not.toBeInTheDocument();
+  });
+
+  it("pluralises the summary and opens the panel on click", async () => {
+    const onShowTools = vi.fn();
+    const m: ChatMessage = {
+      id: 3,
+      role: "assistant",
+      content: "Done.",
+      tool_calls: [
+        { name: "list_invoices", input: {}, output: [] },
+        { name: "get_job", input: { ref: "JOB-1" }, output: {} },
+      ],
+    };
+    render(<MessageBubble message={m} onShowTools={onShowTools} />);
+
+    const summary = screen.getByText(/2 tool calls · view/i);
+    await userEvent.click(summary);
+    expect(onShowTools).toHaveBeenCalledOnce();
   });
 });

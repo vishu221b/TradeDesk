@@ -172,6 +172,16 @@ export const Filter = (p: P) => (
     <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
   </svg>
 );
+export const Menu = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M3 6h18M3 12h18M3 18h18" />
+  </svg>
+);
+export const X = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M18 6 6 18M6 6l12 12" />
+  </svg>
+);
 export const PanelRight = (p: P) => (
   <svg {...base(p)}>
     <rect x="3" y="3" width="18" height="18" rx="2" />
