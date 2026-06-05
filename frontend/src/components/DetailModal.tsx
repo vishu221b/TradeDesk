@@ -1,9 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { chatApi } from "../api/endpoints";
+import { summariesApi } from "../api/endpoints";
 import { apiError } from "../api/client";
+import type { Summary } from "../api/types";
+import { exportSummaryPdf } from "../lib/pdf";
+import { summaryChatSeed } from "../lib/chatSeed";
 import { Button } from "./ui";
-import { Bolt, Spinner } from "./icons";
+import { Bolt, Chat, FileText, Refresh, Spinner } from "./icons";
 
 export interface DetailField {
   label: string;
@@ -21,12 +25,14 @@ interface Props {
   /** Title + JSON context sent to the AI summarizer. */
   summaryTitle: string;
   summaryContext: unknown;
+  subjectType?: string;
+  subjectRef?: string;
   provider: string;
   model: string;
 }
 
-// Minimal markdown-ish rendering for the AI summary: bold, inline code, lists.
-function renderRich(text: string) {
+// Minimal markdown-ish rendering for AI summaries: bold, inline code, italics, lists.
+export function renderRich(text: string) {
   return text.split("\n").map((line, i) => {
     const trimmed = line.trim();
     const bullet = trimmed.startsWith("- ") || trimmed.startsWith("* ");
@@ -69,40 +75,61 @@ export function DetailModal({
   fields,
   summaryTitle,
   summaryContext,
+  subjectType = "metric",
+  subjectRef = "",
   provider,
   model,
 }: Props) {
-  const [summary, setSummary] = useState("");
+  const navigate = useNavigate();
+  const [saved, setSaved] = useState<Summary | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [usedProvider, setUsedProvider] = useState("");
 
   // Reset AI state whenever a different record is opened.
   useEffect(() => {
     if (open) {
-      setSummary("");
+      setSaved(null);
       setError("");
-      setUsedProvider("");
     }
   }, [open, title]);
 
-  const summarize = async () => {
+  const generate = async () => {
     setBusy(true);
     setError("");
     try {
-      const res = await chatApi.summarize({
+      const res = await summariesApi.create({
         title: summaryTitle,
+        subject_type: subjectType,
+        subject_ref: subjectRef,
         context: summaryContext,
         provider,
         model: model || undefined,
       });
-      setSummary(res.summary);
-      setUsedProvider(`${res.provider}${res.model ? ` · ${res.model}` : ""}`);
+      setSaved(res);
     } catch (e) {
       setError(apiError(e, "Could not generate a summary."));
     } finally {
       setBusy(false);
     }
+  };
+
+  const regenerate = async () => {
+    if (!saved) return;
+    setBusy(true);
+    setError("");
+    try {
+      setSaved(await summariesApi.regenerate(saved.id, { provider, model: model || undefined }));
+    } catch (e) {
+      setError(apiError(e, "Could not regenerate."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const discuss = () => {
+    if (!saved) return;
+    navigate("/chat", { state: { seed: summaryChatSeed(saved) } });
+    onClose();
   };
 
   return (
@@ -140,7 +167,7 @@ export function DetailModal({
               </button>
             </div>
 
-            <div className="grid gap-0 md:grid-cols-[1fr_320px]">
+            <div className="grid gap-0 md:grid-cols-[1fr_340px]">
               {/* Details */}
               <div className="max-h-[60vh] overflow-y-auto p-5">
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
@@ -156,41 +183,57 @@ export function DetailModal({
               </div>
 
               {/* AI side panel */}
-              <div className="border-t border-edge-light bg-black/[0.015] p-5 dark:border-edge-dark dark:bg-white/[0.02] md:border-l md:border-t-0">
+              <div className="flex max-h-[60vh] flex-col border-t border-edge-light bg-black/[0.015] p-5 dark:border-edge-dark dark:bg-white/[0.02] md:border-l md:border-t-0">
                 <div className="mb-3 flex items-center gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-glow">
                     <Bolt className="h-4 w-4" />
                   </div>
                   <span className="text-sm font-semibold">AI summary</span>
+                  {saved && <span className="ml-auto text-[11px] text-emerald-500">Saved</span>}
                 </div>
 
-                {!summary && !busy && (
+                {!saved && !busy && (
                   <p className="mb-3 text-xs text-gray-500">
-                    Generate an in-depth, plain-language summary of this record using your selected
-                    provider &amp; model.
+                    Generate an in-depth, plain-language summary of this record. It's saved so you
+                    can revisit, regenerate, export, or chat about it later.
                   </p>
                 )}
 
                 {busy && (
                   <div className="flex items-center gap-2 py-6 text-sm text-gray-500">
-                    <Spinner className="h-4 w-4 text-accent" /> Summarizing…
+                    <Spinner className="h-4 w-4 text-accent" /> Working…
                   </div>
                 )}
 
                 {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
 
-                {summary && (
-                  <div className="mb-3 max-h-[44vh] space-y-1 overflow-y-auto text-sm leading-relaxed">
-                    {renderRich(summary)}
-                    {usedProvider && (
-                      <p className="mt-3 text-[11px] text-gray-400">via {usedProvider}</p>
-                    )}
+                {saved && !busy && (
+                  <div className="mb-3 flex-1 space-y-1 overflow-y-auto text-sm leading-relaxed">
+                    {renderRich(saved.summary)}
+                    <p className="mt-3 text-[11px] text-gray-400">
+                      via {saved.provider}
+                      {saved.model ? ` · ${saved.model}` : ""}
+                    </p>
                   </div>
                 )}
 
-                <Button onClick={summarize} loading={busy} className="w-full">
-                  <Bolt className="h-4 w-4" /> {summary ? "Regenerate" : "Summarize with AI"}
-                </Button>
+                {!saved ? (
+                  <Button onClick={generate} loading={busy} className="w-full">
+                    <Bolt className="h-4 w-4" /> Summarize with AI
+                  </Button>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" onClick={regenerate} disabled={busy} className="py-1.5">
+                      <Refresh className="h-4 w-4" /> Regenerate
+                    </Button>
+                    <Button variant="outline" onClick={() => exportSummaryPdf(saved)} disabled={busy} className="py-1.5">
+                      <FileText className="h-4 w-4" /> Export PDF
+                    </Button>
+                    <Button onClick={discuss} disabled={busy} className="col-span-2 py-1.5">
+                      <Chat className="h-4 w-4" /> Discuss in chat
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

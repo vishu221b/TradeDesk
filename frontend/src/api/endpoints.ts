@@ -11,6 +11,7 @@ import type {
   Metrics,
   ProviderInfo,
   Quote,
+  Summary,
   SummarizeResponse,
   TokenResponse,
   User,
@@ -43,6 +44,23 @@ export const chatApi = {
   deleteConversation: (id: number) => api.delete(`/conversations/${id}`).then((r) => r.data),
   summarize: (payload: { title: string; context: unknown; provider: string; model?: string }) =>
     api.post<SummarizeResponse>("/summarize", payload).then((r) => r.data),
+};
+
+// --- persisted AI summaries ---
+export const summariesApi = {
+  list: () => api.get<Summary[]>("/summaries").then((r) => r.data),
+  get: (id: number) => api.get<Summary>(`/summaries/${id}`).then((r) => r.data),
+  create: (payload: {
+    title: string;
+    subject_type: string;
+    subject_ref?: string;
+    context: unknown;
+    provider: string;
+    model?: string;
+  }) => api.post<Summary>("/summaries", payload).then((r) => r.data),
+  regenerate: (id: number, payload: { provider?: string; model?: string }) =>
+    api.post<Summary>(`/summaries/${id}/regenerate`, payload).then((r) => r.data),
+  remove: (id: number) => api.delete(`/summaries/${id}`).then((r) => r.data),
 };
 
 // --- operations ---

@@ -88,3 +88,46 @@ def test_summarize_unconfigured_provider_400(client, user):
         "title": "x", "context": {"a": 1}, "provider": "anthropic",
     })
     assert r.status_code == 400
+
+
+def test_summary_persist_list_get_regenerate_delete(seeded_user, client):
+    h = seeded_user["headers"]
+    created = client.post("/summaries", headers=h, json={
+        "title": "Overdue position",
+        "subject_type": "metric",
+        "context": {"overdue_amount": 1234.0, "overdue_count": 3},
+        "provider": "mock",
+    })
+    assert created.status_code == 201
+    sid = created.json()["id"]
+    assert "Summary" in created.json()["summary"]
+
+    # list (context omitted)
+    listed = client.get("/summaries", headers=h).json()
+    assert any(s["id"] == sid for s in listed)
+    assert listed[0]["context"] is None
+
+    # get (context present)
+    got = client.get(f"/summaries/{sid}", headers=h).json()
+    assert got["context"]["overdue_count"] == 3
+
+    # regenerate keeps it usable
+    regen = client.post(f"/summaries/{sid}/regenerate", headers=h, json={})
+    assert regen.status_code == 200
+    assert "Summary" in regen.json()["summary"]
+
+    # delete -> gone
+    assert client.delete(f"/summaries/{sid}", headers=h).status_code == 200
+    assert client.get(f"/summaries/{sid}", headers=h).status_code == 404
+    assert client.get("/summaries", headers=h).json() == []
+
+
+def test_summary_owner_scoped(seeded_user, client):
+    from tests.conftest import _register
+
+    h = seeded_user["headers"]
+    sid = client.post("/summaries", headers=h, json={
+        "title": "x", "context": {"a": 1}, "provider": "mock",
+    }).json()["id"]
+    other = _register(client)
+    assert client.get(f"/summaries/{sid}", headers=other["headers"]).status_code == 404

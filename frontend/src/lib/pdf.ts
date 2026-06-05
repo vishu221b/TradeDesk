@@ -1,4 +1,4 @@
-import type { Customer, Invoice, Quote } from "../api/types";
+import type { Customer, Invoice, Quote, Summary } from "../api/types";
 
 // Lightweight, dependency-free PDF export: render a clean print document in a
 // hidden iframe and trigger the browser's print dialog, where the user can
@@ -161,4 +161,54 @@ export function exportQuotePdf(q: Quote): void {
     </div>
     ${q.notes ? `<div class="notes"><h3>Notes</h3><p>${escapeHtml(q.notes)}</p></div>` : ""}`;
   printHtml(`Quote ${q.id}`, body);
+}
+
+// Render a stored AI summary as a clean PDF report. Supports the light markdown
+// the model emits (**bold**, `code`, bullet lines, _italics_).
+function summaryToHtml(text: string): string {
+  const lines = text.split("\n");
+  let html = "";
+  let inList = false;
+  const inline = (s: string) =>
+    escapeHtml(s)
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/_([^_]+)_/g, "<em>$1</em>");
+  for (const raw of lines) {
+    const line = raw.trim();
+    const bullet = line.startsWith("- ") || line.startsWith("* ");
+    if (bullet) {
+      if (!inList) {
+        html += "<ul>";
+        inList = true;
+      }
+      html += `<li>${inline(line.slice(2))}</li>`;
+    } else {
+      if (inList) {
+        html += "</ul>";
+        inList = false;
+      }
+      html += line ? `<p>${inline(line)}</p>` : "<div style='height:8px'></div>";
+    }
+  }
+  if (inList) html += "</ul>";
+  return html;
+}
+
+export function exportSummaryPdf(s: Summary): void {
+  const when = new Date(s.updated_at || s.created_at).toLocaleString();
+  const body = `
+    <div class="head">${brand}
+      <div class="doc-title"><h1>AI Report</h1><div class="ref">${escapeHtml(s.subject_ref || s.subject_type)}</div></div>
+    </div>
+    <div class="meta">
+      <div><h3>Subject</h3><p><strong>${escapeHtml(s.title)}</strong></p>
+        <p>${escapeHtml(s.subject_type)}${s.subject_ref ? ` · ${escapeHtml(s.subject_ref)}` : ""}</p></div>
+      <div class="right"><h3>Generated</h3>
+        <p>${escapeHtml(when)}</p>
+        <p>via ${escapeHtml(s.provider)}${s.model ? ` · ${escapeHtml(s.model)}` : ""}</p>
+      </div>
+    </div>
+    <div class="notes" style="margin-top:8px">${summaryToHtml(s.summary)}</div>`;
+  printHtml(`Report — ${s.title}`, body);
 }
