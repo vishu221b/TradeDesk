@@ -132,6 +132,29 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
+class Summary(Base):
+    """A persisted AI summary, so it can be revisited, regenerated or exported."""
+
+    __tablename__ = "summaries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(255), default="")
+    # What the summary is about: e.g. "invoice", "quote", "job", "customer", "metric".
+    subject_type: Mapped[str] = mapped_column(String(32), default="metric")
+    # Optional human ref of the subject (e.g. "INV-9001"); empty for aggregate topics.
+    subject_ref: Mapped[str] = mapped_column(String(64), default="")
+    context: Mapped[dict] = mapped_column(JSON, default=dict)  # the data that was summarised
+    summary: Mapped[str] = mapped_column(Text, default="")
+    provider: Mapped[str] = mapped_column(String(32), default="mock")
+    model: Mapped[str] = mapped_column(String(128), default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+
 class Conversation(Base):
     __tablename__ = "conversations"
 

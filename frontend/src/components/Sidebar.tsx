@@ -12,6 +12,7 @@ import {
   Mail,
   Plus,
   Settings,
+  Sparkles,
   Spinner,
   Trash,
   Users,
@@ -22,6 +23,7 @@ export type { DataTab, View };
 const NAV: { id: View; label: string; icon: typeof Chat }[] = [
   { id: "home", label: "Home", icon: Home },
   { id: "chat", label: "Chat", icon: Chat },
+  { id: "summaries", label: "Summaries", icon: Sparkles },
 ];
 
 const DATA_NAV: { id: DataTab; label: string; icon: typeof Chat }[] = [

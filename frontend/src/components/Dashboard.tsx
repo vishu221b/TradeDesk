@@ -54,6 +54,8 @@ interface DetailConfig {
   fields: DetailField[];
   summaryTitle: string;
   summaryContext: unknown;
+  subjectType: string;
+  subjectRef?: string;
 }
 
 interface Props {
@@ -137,6 +139,8 @@ export function Dashboard({ onNavigate, provider, model }: Props) {
       accent: CATEGORY_RGB.invoices,
       summaryTitle: `Invoice ${i.id} for ${i.customer}`,
       summaryContext: i,
+      subjectType: "invoice",
+      subjectRef: i.id,
       fields: [
         { label: "Customer", value: i.customer },
         { label: "Status", value: <Badge tone={STATUS_TONE[i.status] ?? "neutral"}>{i.status}</Badge> },
@@ -158,6 +162,8 @@ export function Dashboard({ onNavigate, provider, model }: Props) {
       accent: CATEGORY_RGB.quotes,
       summaryTitle: `Quote ${q.id} for ${q.customer}`,
       summaryContext: q,
+      subjectType: "quote",
+      subjectRef: q.id,
       fields: [
         { label: "Customer", value: q.customer },
         { label: "Status", value: <Badge tone={STATUS_TONE[q.status] ?? "neutral"}>{q.status}</Badge> },
@@ -179,6 +185,8 @@ export function Dashboard({ onNavigate, provider, model }: Props) {
       accent: CATEGORY_RGB.jobs,
       summaryTitle: `Job ${j.id} — ${j.title}`,
       summaryContext: j,
+      subjectType: "job",
+      subjectRef: j.id,
       fields: [
         { label: "Title", value: j.title, wide: true },
         { label: "Customer", value: j.customer },
@@ -196,6 +204,8 @@ export function Dashboard({ onNavigate, provider, model }: Props) {
       accent: CATEGORY_RGB.customers,
       summaryTitle: `Customer ${c.name}`,
       summaryContext: c,
+      subjectType: "customer",
+      subjectRef: c.id,
       fields: [
         { label: "Contact", value: c.contact || "—" },
         { label: "Phone", value: c.phone || "—" },
@@ -247,6 +257,7 @@ export function Dashboard({ onNavigate, provider, model }: Props) {
               openMetric({
                 title: "Revenue collected",
                 accent: CATEGORY_RGB.revenue,
+                subjectType: "metric",
                 summaryTitle: "Revenue & collections overview",
                 summaryContext: {
                   revenue_collected: m.revenue_collected,
@@ -277,6 +288,7 @@ export function Dashboard({ onNavigate, provider, model }: Props) {
               openMetric({
                 title: "Outstanding balance",
                 accent: CATEGORY_RGB.quotes,
+                subjectType: "metric",
                 summaryTitle: "Outstanding & overdue position",
                 summaryContext: {
                   outstanding: m.outstanding,
@@ -305,6 +317,7 @@ export function Dashboard({ onNavigate, provider, model }: Props) {
               openMetric({
                 title: "Overdue invoices",
                 accent: "239,68,68",
+                subjectType: "metric",
                 summaryTitle: "Overdue invoices & recovery actions",
                 summaryContext: { overdue_amount: m.overdue_amount, overdue_count: m.overdue_count, top_overdue: m.top_overdue },
                 fields: [
@@ -339,6 +352,7 @@ export function Dashboard({ onNavigate, provider, model }: Props) {
               openMetric({
                 title: "Active jobs",
                 accent: CATEGORY_RGB.jobs,
+                subjectType: "metric",
                 summaryTitle: "Job pipeline overview",
                 summaryContext: { jobs_total: m.jobs_total, active_jobs: m.active_jobs, high_priority_jobs: m.high_priority_jobs, jobs_by_status: m.jobs_by_status },
                 fields: [
@@ -368,8 +382,76 @@ export function Dashboard({ onNavigate, provider, model }: Props) {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Gauge label="Collection rate" value={pct(m.collection_rate)} ratio={m.collection_rate} hint="of billed revenue received" />
           <Gauge label="Customer retention" value={pct(m.repeat_rate)} ratio={m.repeat_rate} gold hint={`${m.repeat_customers} repeat customers`} />
-          <StatCard label="Quote pipeline" value={m.quote_pipeline} format={money} rgb={CATEGORY_RGB.quotes} sub={`${m.quotes_count} quotes drafted`} onClick={() => onNavigate("quotes")} />
-          <StatCard label="Avg invoice" value={m.avg_invoice} format={money} rgb={CATEGORY_RGB.customers} sub={`${m.customers_total} customers · ${m.active_customers} active`} onClick={() => onNavigate("customers")} />
+          <StatCard
+            label="Quote pipeline"
+            value={m.quote_pipeline}
+            format={money}
+            rgb={CATEGORY_RGB.quotes}
+            sub={`${m.quotes_count} quotes drafted`}
+            onClick={() =>
+              openMetric({
+                title: "Quote pipeline",
+                accent: CATEGORY_RGB.quotes,
+                subjectType: "metric",
+                summaryTitle: "Quote pipeline overview",
+                summaryContext: {
+                  quote_pipeline: m.quote_pipeline,
+                  quotes_count: m.quotes_count,
+                  recent_quotes: recentQuotes.map((q) => ({ id: q.id, customer: q.customer, total: q.total, status: q.status })),
+                },
+                fields: [
+                  { label: "Pipeline value", value: aud2.format(m.quote_pipeline) },
+                  { label: "Quotes drafted", value: String(m.quotes_count) },
+                  {
+                    label: "Recent quotes",
+                    wide: true,
+                    value: (
+                      <ul className="mt-1 space-y-1">
+                        {recentQuotes.map((q) => (
+                          <li key={q.id} className="flex justify-between gap-2 text-xs">
+                            <span>{q.customer}</span>
+                            <span className="text-gray-400">{aud2.format(q.total)} · {q.status}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ),
+                  },
+                ],
+              })
+            }
+          />
+          <StatCard
+            label="Avg invoice"
+            value={m.avg_invoice}
+            format={money}
+            rgb={CATEGORY_RGB.customers}
+            sub={`${m.customers_total} customers · ${m.active_customers} active`}
+            onClick={() =>
+              openMetric({
+                title: "Average invoice & customers",
+                accent: CATEGORY_RGB.customers,
+                subjectType: "metric",
+                summaryTitle: "Average invoice value & customer base",
+                summaryContext: {
+                  avg_invoice: m.avg_invoice,
+                  billed_total: m.billed_total,
+                  invoices_total: m.invoices_total,
+                  customers_total: m.customers_total,
+                  active_customers: m.active_customers,
+                  repeat_customers: m.repeat_customers,
+                  repeat_rate: m.repeat_rate,
+                },
+                fields: [
+                  { label: "Avg invoice", value: aud2.format(m.avg_invoice) },
+                  { label: "Billed total", value: aud2.format(m.billed_total) },
+                  { label: "Invoices", value: String(m.invoices_total) },
+                  { label: "Customers", value: String(m.customers_total) },
+                  { label: "Active customers", value: String(m.active_customers) },
+                  { label: "Repeat rate", value: pct(m.repeat_rate) },
+                ],
+              })
+            }
+          />
         </div>
 
         {/* Charts: revenue trend + invoice status donut */}
@@ -479,6 +561,8 @@ export function Dashboard({ onNavigate, provider, model }: Props) {
           fields={detail.fields}
           summaryTitle={detail.summaryTitle}
           summaryContext={detail.summaryContext}
+          subjectType={detail.subjectType}
+          subjectRef={detail.subjectRef}
           provider={provider}
           model={model}
         />

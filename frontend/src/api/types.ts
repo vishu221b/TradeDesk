@@ -134,6 +134,19 @@ export interface SummarizeResponse {
   model: string;
 }
 
+export interface Summary {
+  id: number;
+  title: string;
+  subject_type: string;
+  subject_ref: string;
+  context?: unknown;
+  summary: string;
+  provider: string;
+  model: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Metrics {
   revenue_collected: number;
   outstanding: number;

@@ -191,3 +191,33 @@ class SummarizeResponse(BaseModel):
     summary: str
     provider: str
     model: str
+
+
+# --- persisted summaries --------------------------------------------------
+class SummaryCreate(BaseModel):
+    title: str
+    subject_type: str = Field("metric", description="invoice | quote | job | customer | metric")
+    subject_ref: str = ""
+    context: Any
+    provider: str = "mock"
+    model: Optional[str] = None
+
+
+class SummaryRegenerate(BaseModel):
+    """Re-run an existing summary; provider/model optional (falls back to stored)."""
+
+    provider: Optional[str] = None
+    model: Optional[str] = None
+
+
+class SummaryOut(BaseModel):
+    id: int
+    title: str
+    subject_type: str
+    subject_ref: str
+    context: Any = None
+    summary: str
+    provider: str
+    model: str
+    created_at: str
+    updated_at: str

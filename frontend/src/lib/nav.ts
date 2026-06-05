@@ -1,5 +1,5 @@
 export type DataTab = "jobs" | "invoices" | "quotes" | "messages" | "customers";
-export type View = "home" | "chat" | "settings" | DataTab;
+export type View = "home" | "chat" | "summaries" | "settings" | DataTab;
 
 const DATA_TABS: DataTab[] = ["jobs", "invoices", "quotes", "messages", "customers"];
 
@@ -7,7 +7,7 @@ const DATA_TABS: DataTab[] = ["jobs", "invoices", "quotes", "messages", "custome
 export function viewFromPath(pathname: string): View {
   const seg = pathname.split("/").filter(Boolean)[0] ?? "";
   if (seg === "") return "home";
-  if (seg === "chat" || seg === "settings") return seg;
+  if (seg === "chat" || seg === "settings" || seg === "summaries") return seg;
   if (DATA_TABS.includes(seg as DataTab)) return seg as View;
   return "home";
 }

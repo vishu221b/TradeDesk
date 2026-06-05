@@ -155,6 +155,12 @@ export const Mail = (p: P) => (
     <path d="m22 7-10 6L2 7" />
   </svg>
 );
+export const Sparkles = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z" />
+    <path d="M19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z" />
+  </svg>
+);
 export const Search = (p: P) => (
   <svg {...base(p)}>
     <circle cx="11" cy="11" r="8" />

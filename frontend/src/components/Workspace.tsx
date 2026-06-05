@@ -8,11 +8,13 @@ import { TopBar } from "./TopBar";
 import { ChatRoute } from "./ChatRoute";
 import { DataView, type DataTab } from "./DataView";
 import { SettingsView } from "./SettingsView";
+import { SummariesView } from "./SummariesView";
 import { Dashboard } from "./Dashboard";
 
 const TITLES: Record<View, string> = {
   home: "Dashboard",
   chat: "Job Desk",
+  summaries: "Summaries",
   settings: "Settings",
   jobs: "Jobs",
   invoices: "Invoices",
@@ -110,6 +112,7 @@ export function Workspace() {
               <Route path="/quotes" element={<DataView key="quotes" tab="quotes" />} />
               <Route path="/messages" element={<DataView key="messages" tab="messages" />} />
               <Route path="/customers" element={<DataView key="customers" tab="customers" />} />
+              <Route path="/summaries" element={<SummariesView provider={provider} model={model} />} />
               <Route
                 path="/settings"
                 element={<SettingsView providers={providers} onProvidersRefresh={refreshProviders} />}
