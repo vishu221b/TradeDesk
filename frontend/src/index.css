@@ -26,7 +26,11 @@
 
 @layer components {
   .card {
-    @apply rounded-xl border border-edge-light bg-panel-light shadow-sm transition dark:border-edge-dark dark:bg-panel-dark;
+    @apply rounded-2xl border border-edge-light bg-panel-light shadow-card transition dark:border-edge-dark dark:bg-panel-dark;
+  }
+  /* Clickable card: subtle lift + accent edge on hover. */
+  .card-interactive {
+    @apply cursor-pointer hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-card-lg;
   }
   /* Frosted, translucent surface for hero/overlay panels. */
   .glass {

@@ -177,3 +177,17 @@ class MessageUpdate(BaseModel):
     purpose: Optional[str] = None
     body: Optional[str] = None
     status: Optional[str] = None
+
+
+# --- AI summarize ---------------------------------------------------------
+class SummarizeRequest(BaseModel):
+    title: str = Field(..., description="Human label for what is being summarised.")
+    context: Any = Field(..., description="JSON-serialisable data (dict/list/str) to summarise.")
+    provider: str = Field("mock", description="mock | anthropic | openai | gemini | ollama")
+    model: Optional[str] = None
+
+
+class SummarizeResponse(BaseModel):
+    summary: str
+    provider: str
+    model: str

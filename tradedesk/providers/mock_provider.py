@@ -51,8 +51,51 @@ class MockProvider(LLMProvider):
                              "tool_calls": [{"id": call.id, "name": call.name, "input": call.input}]}
                 return LLMResponse("", [call], assistant)
 
+        # No-tools summarize request (from /summarize) — produce a deterministic
+        # rundown of the supplied JSON so the keyless demo is still useful.
+        if not tools and "Data (JSON):" in text:
+            return self._summarise_payload(text)
+
         reply = self._chitchat(text, bool(tools))
         return LLMResponse(reply, [], {"role": "assistant", "content": reply})
+
+    @staticmethod
+    def _summarise_payload(text: str) -> LLMResponse:
+        blob = text.split("Data (JSON):", 1)[1].strip()
+        try:
+            data = json.loads(blob)
+        except json.JSONDecodeError:
+            data = None
+
+        lines: list[str] = []
+        if isinstance(data, dict):
+            lines.append("**Summary**")
+            shown = 0
+            for k, v in data.items():
+                if isinstance(v, (dict, list)):
+                    if isinstance(v, list):
+                        lines.append(f"- {k.replace('_', ' ')}: {len(v)} item(s)")
+                        shown += 1
+                    continue
+                label = k.replace("_", " ").capitalize()
+                lines.append(f"- {label}: {v}")
+                shown += 1
+                if shown >= 8:
+                    break
+        elif isinstance(data, list):
+            lines.append(f"**Summary** — {len(data)} record(s).")
+            for item in data[:5]:
+                if isinstance(item, dict):
+                    ident = item.get("id") or item.get("ref") or item.get("name") or "record"
+                    lines.append(f"- {ident}")
+        else:
+            lines.append("I couldn't parse the data to summarise.")
+
+        text_out = "\n".join(lines) + (
+            "\n\n_(Demo provider: deterministic, no LLM. Choose Anthropic / OpenAI / "
+            "Gemini / Ollama in the header for a real in-depth analysis.)_"
+        )
+        return LLMResponse(text_out, [], {"role": "assistant", "content": text_out})
 
     # --- intent routing --------------------------------------------------
     @staticmethod

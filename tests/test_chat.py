@@ -65,3 +65,26 @@ def test_unconfigured_provider_400(client, user):
     # No server key and no user key for anthropic in the test env.
     r = client.post("/chat", headers=user["headers"], json={"message": "hi", "provider": "anthropic"})
     assert r.status_code == 400
+
+
+def test_summarize_mock(seeded_user, client):
+    h = seeded_user["headers"]
+    metrics = client.get("/ops/metrics", headers=h).json()
+    r = client.post("/summarize", headers=h, json={
+        "title": "Business overview",
+        "context": {"revenue_collected": metrics["revenue_collected"],
+                    "outstanding": metrics["outstanding"],
+                    "overdue_count": metrics["overdue_count"]},
+        "provider": "mock",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["provider"] == "mock"
+    assert "Summary" in body["summary"]
+
+
+def test_summarize_unconfigured_provider_400(client, user):
+    r = client.post("/summarize", headers=user["headers"], json={
+        "title": "x", "context": {"a": 1}, "provider": "anthropic",
+    })
+    assert r.status_code == 400

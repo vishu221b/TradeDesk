@@ -11,6 +11,7 @@ import type {
   Metrics,
   ProviderInfo,
   Quote,
+  SummarizeResponse,
   TokenResponse,
   User,
 } from "./types";
@@ -40,6 +41,8 @@ export const chatApi = {
   conversation: (id: number) =>
     api.get<ConversationDetail>(`/conversations/${id}`).then((r) => r.data),
   deleteConversation: (id: number) => api.delete(`/conversations/${id}`).then((r) => r.data),
+  summarize: (payload: { title: string; context: unknown; provider: string; model?: string }) =>
+    api.post<SummarizeResponse>("/summarize", payload).then((r) => r.data),
 };
 
 // --- operations ---
