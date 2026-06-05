@@ -155,6 +155,17 @@ export const Mail = (p: P) => (
     <path d="m22 7-10 6L2 7" />
   </svg>
 );
+export const Search = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="11" cy="11" r="8" />
+    <path d="m21 21-4.3-4.3" />
+  </svg>
+);
+export const Filter = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+  </svg>
+);
 export const PanelRight = (p: P) => (
   <svg {...base(p)}>
     <rect x="3" y="3" width="18" height="18" rx="2" />

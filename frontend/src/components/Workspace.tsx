@@ -83,7 +83,16 @@ export function Workspace() {
           />
           <main className="min-h-0 flex-1 overflow-hidden">
             <Routes>
-              <Route path="/" element={<Dashboard onNavigate={(v) => navigate(v === "home" ? "/" : `/${v}`)} />} />
+              <Route
+                path="/"
+                element={
+                  <Dashboard
+                    onNavigate={(v) => navigate(v === "home" ? "/" : `/${v}`)}
+                    provider={provider}
+                    model={model}
+                  />
+                }
+              />
               <Route
                 path="/chat"
                 element={

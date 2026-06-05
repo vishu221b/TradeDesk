@@ -226,3 +226,52 @@ def chat(
         conversation_id=conv.id, reply=reply, provider=provider.name,
         model=provider.model, mode=req.mode, tool_calls=calls,
     )
+
+
+# --- AI summarize --------------------------------------------------------
+SUMMARY_SYSTEM_PROMPT = (
+    "You are TradeDesk's business analyst for a small trade/field-service company. "
+    "Summarise the supplied operational data for a busy owner in clear, plain English. "
+    "Be specific and ground every figure ONLY in the data given — never invent numbers. "
+    "Money is AUD and figures are ex-GST unless stated (GST is 10%). "
+    "Structure the answer with a one-line headline, a few key points, and one or two "
+    "concrete suggested actions. Keep it tight and useful. Remember nothing is ever "
+    "auto-sent — quotes and messages are drafts a human approves."
+)
+
+
+@app.post("/summarize", response_model=schemas.SummarizeResponse)
+def summarize(
+    req: schemas.SummarizeRequest,
+    user: models.User = Depends(current_user),
+) -> schemas.SummarizeResponse:
+    """One-shot, non-persisted AI summary of arbitrary dashboard/data context.
+
+    Uses the caller's selected provider + model (resolving their stored key
+    first). Runs a single completion with no tools, so it never mutates data.
+    """
+    import json
+
+    try:
+        provider = get_provider(req.provider, model=req.model, user_keys=_user_keys(user))
+    except ProviderConfigError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    ctx = req.context if isinstance(req.context, str) else json.dumps(req.context, indent=2, default=str)
+    # Keep the JSON block last so lightweight providers can parse it cleanly.
+    prompt = (
+        f"Summarise this in depth but concisely.\n\nTopic: {req.title}\n\nData (JSON):\n{ctx}"
+    )
+
+    try:
+        resp = provider.complete(SUMMARY_SYSTEM_PROMPT, [provider.user_message(prompt)], [])
+    except ProviderConfigError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:  # provider/network/runtime errors
+        raise HTTPException(status_code=502, detail=f"Summary error: {exc}")
+
+    return schemas.SummarizeResponse(
+        summary=resp.text or "(no summary produced)",
+        provider=provider.name,
+        model=provider.model,
+    )

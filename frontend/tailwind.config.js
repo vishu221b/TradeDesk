@@ -25,18 +25,28 @@ export default {
           hover: "#e0a500",
           soft: "#f5b50a1f",
         },
+        // Per-category accents (Monday.com-style): each data type owns a hue.
+        cat: {
+          jobs: "#3b82f6",      // blue
+          invoices: "#7c3aed",  // violet
+          quotes: "#f59e0b",    // amber
+          messages: "#06b6d4",  // cyan
+          customers: "#10b981", // emerald
+          revenue: "#7c3aed",
+          danger: "#ef4444",
+        },
+        // Surfaces: clean white in light, professional deep-navy/slate in dark.
         canvas: {
-          light: "#f6f5fc",
-          // deeper, more saturated indigo-black so glows/particles pop
-          dark: "#08060f",
+          light: "#f6f7fb",
+          dark: "#0a0e1a",
         },
         panel: {
           light: "#ffffff",
-          dark: "#140e29",
+          dark: "#111627",
         },
         edge: {
-          light: "#e9e7f3",
-          dark: "#2a2150",
+          light: "#e7e9f2",
+          dark: "#222a44",
         },
       },
       fontFamily: {
@@ -47,6 +57,9 @@ export default {
         glow: "0 0 0 1px rgba(124,58,237,0.18), 0 12px 40px -12px rgba(124,58,237,0.5)",
         "glow-lg": "0 0 0 1px rgba(124,58,237,0.2), 0 24px 70px -20px rgba(124,58,237,0.55)",
         "glow-cyan": "0 0 0 1px rgba(34,211,238,0.18), 0 16px 50px -16px rgba(34,211,238,0.45)",
+        // Professional neutral elevation (Monday/Asana-style soft shadows).
+        card: "0 1px 2px rgba(16,24,40,0.04), 0 4px 16px -6px rgba(16,24,40,0.10)",
+        "card-lg": "0 10px 34px -10px rgba(16,24,40,0.20)",
       },
       backgroundImage: {
         "brand-gradient": "linear-gradient(135deg, #7c3aed 0%, #a855f7 45%, #f5b50a 130%)",

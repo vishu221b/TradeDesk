@@ -98,6 +98,12 @@ auth, per-user persistence, and a real web frontend.
 - **`tradedesk/ops_api.py`** — read endpoints for the dashboard plus write
   endpoints so users insert their own customers/jobs/invoices/quotes, and
   `POST /ops/load-sample-data`. All go through a user-scoped `OpsClient`.
+  `PUT /ops/{entity}/{ref}` edits a row; `DELETE /ops/{entity}/{ref}` soft-deletes.
+
+- **`POST /summarize`** (in `api.py`) — one-shot, non-persisted AI summary of
+  arbitrary JSON context using the caller's selected provider/model with no
+  tools. Powers the dashboard "Summarize with AI" buttons. The keyless `mock`
+  provider returns a deterministic rundown so it works without a key.
 
 - **`frontend/`** — React + Vite + TS + Tailwind SPA, n8n-style, dark/light. No LLM
   work itself; it calls the API. `src/api` (axios client with JWT interceptor +
@@ -105,6 +111,12 @@ auth, per-user persistence, and a real web frontend.
   Sidebar + TopBar + ChatView + DataView + SettingsView), `src/pages/Login`. Token
   in localStorage; a 401 interceptor resets auth. Provider/model picked in the top
   bar; Agent/Chat toggle in the composer.
+  - **Routing** is URL-based (`react-router-dom`): `/`, `/chat`, `/chat/:id`,
+    `/jobs|invoices|quotes|messages|customers`, `/settings`. `src/lib/nav.ts` maps
+    paths↔views; selections survive reload. nginx already has a SPA fallback.
+  - **Theme** uses per-category accents (`cat.*` in tailwind config, mirrored in
+    `src/lib/theme.ts` for recharts). Charts are recharts; motion is framer-motion;
+    `src/components/magic.tsx` has the spotlight card + animated counter.
 
 ### Adding capabilities
 

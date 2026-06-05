@@ -128,6 +128,12 @@ export interface OverdueTop {
   days_overdue: number;
 }
 
+export interface SummarizeResponse {
+  summary: string;
+  provider: string;
+  model: string;
+}
+
 export interface Metrics {
   revenue_collected: number;
   outstanding: number;

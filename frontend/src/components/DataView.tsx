@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { opsApi } from "../api/endpoints";
 import { apiError } from "../api/client";
 import type { Customer, Invoice, Job, Message, Quote } from "../api/types";
 import { exportInvoicePdf, exportQuotePdf } from "../lib/pdf";
 import { Badge, Button, Spin } from "./ui";
-import { Plus, Refresh } from "./icons";
+import { Plus, Refresh, Search } from "./icons";
 import { DataFormModal, type Entity } from "./DataFormModal";
 
 export type DataTab = Entity;
@@ -58,6 +58,7 @@ export function DataView({ tab }: { tab: DataTab }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState<ModalState>({ open: false, mode: "create", record: null });
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
 
   const load = async () => {
     setLoading(true);
@@ -104,14 +105,24 @@ export function DataView({ tab }: { tab: DataTab }) {
     data.invoices.length === 0 &&
     data.customers.length === 0;
 
-  const count = data ? data[tab].length : 0;
+  const filteredItems = useMemo(
+    () => (data ? applyFilters(tab, data, filters) : []),
+    [data, tab, filters],
+  );
+  const total = data ? data[tab].length : 0;
+  const shown = filteredItems.length;
+  const filtersActive = !isDefaultFilters(filters);
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-edge-light px-4 py-2.5 dark:border-edge-dark md:px-6">
         <h2 className="text-sm font-semibold">
           {TITLES[tab]}
-          {data && <span className="ml-1.5 text-gray-400">({count})</span>}
+          {data && (
+            <span className="ml-1.5 text-gray-400">
+              ({filtersActive ? `${shown} of ${total}` : total})
+            </span>
+          )}
         </h2>
         <p className="hidden text-xs text-gray-400 sm:block">· Click any entry to edit</p>
         <div className="ml-auto flex gap-2">
@@ -125,6 +136,10 @@ export function DataView({ tab }: { tab: DataTab }) {
           )}
         </div>
       </div>
+
+      {data && !isEmpty && (
+        <FilterBar tab={tab} data={data} filters={filters} setFilters={setFilters} />
+      )}
 
       <div className="flex-1 overflow-auto p-4 md:p-6">
         {loading ? (
@@ -143,7 +158,14 @@ export function DataView({ tab }: { tab: DataTab }) {
                 </Button>
               </div>
             )}
-            {data && <TabContent tab={tab} data={data} onEdit={openEdit} />}
+            {data && !isEmpty && shown === 0 && (
+              <p className="py-10 text-center text-sm text-gray-400">
+                No {TITLES[tab].toLowerCase()} match the current filters.
+              </p>
+            )}
+            {data && shown > 0 && (
+              <TabContent tab={tab} items={filteredItems} customers={data.customers} onEdit={openEdit} />
+            )}
           </>
         )}
       </div>
@@ -170,20 +192,204 @@ function tone(v: string) {
   return STATUS_TONE[v] ?? "neutral";
 }
 
-function TabContent({
+// --- filtering ------------------------------------------------------------
+interface Filters {
+  q: string;
+  status: string;
+  priority: string;
+  overdue: string;
+  customer: string;
+  purpose: string;
+}
+
+const EMPTY_FILTERS: Filters = { q: "", status: "", priority: "", overdue: "", customer: "", purpose: "" };
+
+function isDefaultFilters(f: Filters) {
+  return !f.q && !f.status && !f.priority && !f.overdue && !f.customer && !f.purpose;
+}
+
+const STATUS_OPTIONS: Record<DataTab, string[]> = {
+  jobs: ["quote_requested", "scheduled", "in_progress", "completed"],
+  invoices: ["unpaid", "paid"],
+  quotes: ["draft", "approved", "rejected"],
+  messages: ["draft", "approved", "sent"],
+  customers: [],
+};
+
+function matches(q: string, ...fields: (string | null | undefined)[]) {
+  if (!q) return true;
+  const needle = q.toLowerCase();
+  return fields.some((f) => (f ?? "").toLowerCase().includes(needle));
+}
+
+function applyFilters(tab: DataTab, data: Data, f: Filters): AnyRecord[] {
+  switch (tab) {
+    case "jobs":
+      return data.jobs.filter(
+        (j) =>
+          (!f.status || j.status === f.status) &&
+          (!f.priority || j.priority === f.priority) &&
+          (!f.customer || j.customer === f.customer) &&
+          matches(f.q, j.id, j.title, j.customer, j.assigned_tech),
+      );
+    case "invoices":
+      return data.invoices.filter(
+        (i) =>
+          (!f.status || i.status === f.status) &&
+          (!f.overdue || (f.overdue === "overdue" ? i.overdue : !i.overdue)) &&
+          (!f.customer || i.customer === f.customer) &&
+          matches(f.q, i.id, i.customer, i.job_id),
+      );
+    case "quotes":
+      return data.quotes.filter(
+        (q) =>
+          (!f.status || q.status === f.status) &&
+          (!f.customer || q.customer === f.customer) &&
+          matches(f.q, q.id, q.customer, q.job_id, q.notes),
+      );
+    case "messages":
+      return data.messages.filter(
+        (m) =>
+          (!f.status || m.status === f.status) &&
+          (!f.purpose || m.purpose === f.purpose) &&
+          matches(f.q, m.id, m.reference_id, m.purpose, m.body),
+      );
+    case "customers":
+      return data.customers.filter((c) =>
+        matches(f.q, c.id, c.name, c.contact, c.email, c.phone, c.site_address),
+      );
+  }
+}
+
+function FilterBar({
   tab,
   data,
-  onEdit,
+  filters,
+  setFilters,
 }: {
   tab: DataTab;
   data: Data;
+  filters: Filters;
+  setFilters: (f: Filters) => void;
+}) {
+  const set = (k: keyof Filters, v: string) => setFilters({ ...filters, [k]: v });
+  const customerNames = Array.from(new Set(data.customers.map((c) => c.name))).sort();
+  const purposes = Array.from(new Set(data.messages.map((m) => m.purpose))).sort();
+  const showCustomer = tab === "jobs" || tab === "invoices" || tab === "quotes";
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b border-edge-light bg-black/[0.015] px-4 py-2 dark:border-edge-dark dark:bg-white/[0.02] md:px-6">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+        <input
+          className="input w-48 py-1.5 pl-8 text-sm"
+          placeholder={`Search ${TITLES[tab].toLowerCase()}…`}
+          value={filters.q}
+          onChange={(e) => set("q", e.target.value)}
+        />
+      </div>
+
+      {STATUS_OPTIONS[tab].length > 0 && (
+        <FilterSelect
+          label="Status"
+          value={filters.status}
+          onChange={(v) => set("status", v)}
+          options={STATUS_OPTIONS[tab]}
+        />
+      )}
+
+      {tab === "jobs" && (
+        <FilterSelect
+          label="Priority"
+          value={filters.priority}
+          onChange={(v) => set("priority", v)}
+          options={["low", "medium", "high"]}
+        />
+      )}
+
+      {tab === "invoices" && (
+        <FilterSelect
+          label="Payment"
+          value={filters.overdue}
+          onChange={(v) => set("overdue", v)}
+          options={["overdue", "current"]}
+        />
+      )}
+
+      {tab === "messages" && purposes.length > 0 && (
+        <FilterSelect
+          label="Purpose"
+          value={filters.purpose}
+          onChange={(v) => set("purpose", v)}
+          options={purposes}
+        />
+      )}
+
+      {showCustomer && customerNames.length > 0 && (
+        <FilterSelect
+          label="Customer"
+          value={filters.customer}
+          onChange={(v) => set("customer", v)}
+          options={customerNames}
+        />
+      )}
+
+      {!isDefaultFilters(filters) && (
+        <button
+          onClick={() => setFilters(EMPTY_FILTERS)}
+          className="ml-auto text-xs font-medium text-accent hover:underline"
+        >
+          Clear filters
+        </button>
+      )}
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  return (
+    <select
+      className="input w-auto py-1.5 text-sm capitalize"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label={label}
+    >
+      <option value="">{label}: all</option>
+      {options.map((o) => (
+        <option key={o} value={o} className="capitalize">
+          {o.replace(/_/g, " ")}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function TabContent({
+  tab,
+  items,
+  customers,
+  onEdit,
+}: {
+  tab: DataTab;
+  items: AnyRecord[];
+  customers: Customer[];
   onEdit: (r: AnyRecord) => void;
 }) {
   if (tab === "jobs")
     return (
       <Table
         head={["ID", "Title", "Customer", "Status", "Priority", "Scheduled", "Tech"]}
-        rows={data.jobs.map((j) => ({
+        rows={(items as Job[]).map((j) => ({
           key: j.id,
           onClick: () => onEdit(j),
           cells: [
@@ -203,7 +409,7 @@ function TabContent({
     return (
       <Table
         head={["ID", "Customer", "Amount", "Due", "Status", "Overdue", ""]}
-        rows={data.invoices.map((i) => ({
+        rows={(items as Invoice[]).map((i) => ({
           key: i.id,
           onClick: () => onEdit(i),
           cells: [
@@ -217,7 +423,7 @@ function TabContent({
               onClick={() =>
                 exportInvoicePdf(
                   i,
-                  data.customers.find((c) => c.id === i.customer_id),
+                  customers.find((c) => c.id === i.customer_id),
                 )
               }
             />,
@@ -230,7 +436,7 @@ function TabContent({
     return (
       <Table
         head={["ID", "Name", "Contact", "Phone", "Site"]}
-        rows={data.customers.map((c) => ({
+        rows={(items as Customer[]).map((c) => ({
           key: c.id,
           onClick: () => onEdit(c),
           cells: [
@@ -247,8 +453,7 @@ function TabContent({
   if (tab === "quotes")
     return (
       <div className="space-y-3">
-        {data.quotes.length === 0 && <Empty label="No quotes yet. Ask the agent to draft one." />}
-        {data.quotes.map((q) => (
+        {(items as Quote[]).map((q) => (
           <div
             key={q.id}
             className="card cursor-pointer p-4 transition hover:border-accent"
@@ -292,8 +497,7 @@ function TabContent({
   // messages
   return (
     <div className="space-y-3">
-      {data.messages.length === 0 && <Empty label="No messages yet. Ask the agent to draft one." />}
-      {data.messages.map((m) => (
+      {(items as Message[]).map((m) => (
         <div
           key={m.id}
           className="card cursor-pointer p-4 transition hover:border-accent"
